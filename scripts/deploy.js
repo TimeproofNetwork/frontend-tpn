@@ -1,61 +1,88 @@
+// scripts/deploy.js
+
 const { ethers } = require("hardhat");
 
 async function main() {
   const [deployer] = await ethers.getSigners();
-  console.log(`Deployer address: ${deployer.address}`);
+  console.log("🔐 Using deployer:", deployer.address);
 
-  // 1. Deploy FakeToken
-  const FakeToken = await ethers.getContractFactory("FakeToken");
-  const fakeToken = await FakeToken.deploy("Timeproof Network", "TPN", 18);
-  await fakeToken.deployed();
-  console.log(`✅ FakeToken deployed at: ${fakeToken.address}`);
+  // ============================================================================
+  // 📦 Deploy TPNToken
+  // ============================================================================
+  const TPNToken = await ethers.getContractFactory("TPNToken");
+  const tpnToken = await TPNToken.deploy(
+    "Timeproof Token",                          // name_
+    "TPN",                                      // symbol_
+    18,                                         // decimals_
+    ethers.utils.parseEther("1000000000"),     // 1 Billion TPN
+    deployer.address                            // owner_ (DAO post-launch)
+  );
+  await tpnToken.deployed();
+  console.log("✅ TPN Token deployed to:", tpnToken.address);
 
-  // 2. Deploy TokenRegistry
+  // ============================================================================
+  // 🏅 Deploy BadgeNFT
+  // ============================================================================
+  const BadgeNFT = await ethers.getContractFactory("BadgeNFT");
+  const badgeNFT = await BadgeNFT.deploy(
+    "TPN Badge",         // name
+    "TPNB",              // symbol
+    deployer.address     // _customOwner
+  );
+  await badgeNFT.deployed();
+  console.log("🏅 BadgeNFT deployed to:", badgeNFT.address);
+
+  // ============================================================================
+  // 🧱 Deploy TokenRegistry
+  // ============================================================================
   const TokenRegistry = await ethers.getContractFactory("TokenRegistry");
-  const registry = await TokenRegistry.deploy(fakeToken.address);
-  await registry.deployed();
-  console.log(`✅ TokenRegistry deployed at: ${registry.address}`);
+  const tokenRegistry = await TokenRegistry.deploy(
+    tpnToken.address,    // _tpnTokenAddress
+    badgeNFT.address,    // _badgeNFTAddress
+    deployer.address     // _customOwner (retain ownership until DAO migration)
+  );
+  await tokenRegistry.deployed();
+  console.log("🗃️ TokenRegistry deployed to:", tokenRegistry.address);
 
-  // 3. Mint 1000 TPN to deployer
-  const mintAmount = ethers.utils.parseUnits("1000", 18);
-  const mintTx = await fakeToken.mint(deployer.address, mintAmount);
-  await mintTx.wait();
-  console.log(`✅ Minted 1000 TPN to ${deployer.address}`);
+  // ============================================================================
+  // 🔒 Ownership Transfer (Optional for DAO handoff)
+  // ============================================================================
+  // Uncomment when migrating control to TokenRegistry or DAO:
+  // await tpnToken.transferOwnership(tokenRegistry.address);
+  // await badgeNFT.transferOwnership(tokenRegistry.address);
+  // console.log("🔒 Ownership of TPNToken and BadgeNFT transferred to TokenRegistry");
 
-  // 4. Approve 100 TPN to TokenRegistry
-  const approveAmount = ethers.utils.parseUnits("100", 18);
-  const approveTx = await fakeToken.approve(registry.address, approveAmount);
-  await approveTx.wait();
-  console.log(`✅ Approved 100 TPN to TokenRegistry`);
-
-  // 5. Log balance & allowance
-  const balance = await fakeToken.balanceOf(deployer.address);
-  const allowance = await fakeToken.allowance(deployer.address, registry.address);
-  console.log(`📊 Balance: ${ethers.utils.formatUnits(balance, 18)} TPN`);
-  console.log(`📊 Allowance: ${ethers.utils.formatUnits(allowance, 18)} TPN`);
-
-  // 6. Register a token
-  const name = "MyToken";
-  const symbol = ethers.utils.formatBytes32String("MTK");
-
-  const dummyBytecode = "0x6080604052348015600f57600080fd5b50604a80601d6000396000f3fe602a60005260206000f3";
-  const bytecodeHash = ethers.utils.keccak256(dummyBytecode);
-
-  // Optional dry-run using callStatic
-  try {
-    await registry.callStatic.registerToken(name, symbol, bytecodeHash);
-    const tx = await registry.registerToken(name, symbol, bytecodeHash);
-    await tx.wait();
-    console.log("✅ Token registered successfully 🎉");
-  } catch (error) {
-    console.error("❌ Token registration failed:", error.reason || error.message);
-  }
+  console.log("🎯 All contracts deployed successfully.");
 }
 
 main().catch((error) => {
-  console.error(`❌ Deployment script failed:`, error);
-  process.exitCode = 1;
+  console.error("❌ Deployment failed:", error);
+  process.exit(1);
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

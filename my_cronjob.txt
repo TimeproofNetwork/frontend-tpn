@@ -1,0 +1,2 @@
+0 12 * * 0 cd ~/Desktop/TimeproofNetwork/TPN_WEEK1_FULL && npx hardhat run scripts/weeklyBan.js --network sepolia >> logs/weekly-ban-$(date +\%Y-\%m-\%d).log 2>&1
+

@@ -1,0 +1,33 @@
+[
+  {
+    "name": "ScamZero",
+    "symbol": "SCZ",
+    "scam": true,
+    "spam": true,
+    "address": "0x2151B0685eaF55afD356D4f23a708F6569489526"
+  },
+  {
+    "name": "UsedFingerprint",
+    "symbol": "USP",
+    "scam": true,
+    "address": "0x5061ca318F0628578eF6C0919220d037E4B39e85"
+  },
+  {
+    "name": "CopyCat",
+    "symbol": "CCT",
+    "scam": true,
+    "address": "0xc878CA01b5c6E6A2abA16d70fFd65C6245846E00"
+  },
+  {
+    "name": "FakeClone",
+    "symbol": "FCL",
+    "scam": true,
+    "address": "0xB9736Ad7f7353391Ff778Ec6A989b9D4ee1e2b51"
+  },
+  {
+    "name": "AtlantisPay",
+    "symbol": "ATP",
+    "scam": false,
+    "address": "0xC894C6A11a815a0B7719Dc78d0DCf0F92E6AC92A"
+  }
+]

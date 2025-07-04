@@ -1,0 +1,73 @@
+const { ethers } = require("hardhat");
+
+async function main() {
+  const TPN_TOKEN = "0x42fb85d1fF667Eb00bc8f52CC04baD7A7eAfD50e";
+  const BADGE_NFT = "0x319C0FA14Ba35D62B7317f17f146fD051651fb7B";
+  const TOKEN_REGISTRY = "0xeE556A91B2E71D4fb9280C988e9CcA80dDb61D14";
+  // ✅ Final TokenRegistry
+  
+  const Registry = await ethers.getContractAt("TokenRegistry", TOKEN_REGISTRY);
+  const [dao] = await ethers.getSigners();
+
+  console.log("🔐 Connected as DAO:", dao.address);
+
+  const TOKENS = [
+    {
+      name: "orbitnectar",
+      symbol: "orn",
+      tokenAddress: "0xEee0c8C8a9d697058Aa95a2d0b116382cC7e0D42",
+      newLevel: 1
+    },
+    {
+      name: "polopmolop",
+      symbol: "plp",
+      tokenAddress: "0x21fF9eDA09cf368c9dC9812E8bed91114fd2918B",
+      newLevel: 1
+    },
+    {
+      name: "dextydeme",
+      symbol: "dme",
+      tokenAddress: "0xa709b30Dc5718881CC47faAeb9F030070165e2f8",
+      newLevel: 1
+    }
+  ];
+
+  for (const token of TOKENS) {
+    try {
+      const checksumAddress = ethers.utils.getAddress(token.tokenAddress.toLowerCase());
+
+      console.log(`🌀 Attempting upgrade to same trust level: ${token.name} → Level ${token.newLevel}`);
+      const tx = await Registry.daoUpgradeTrustLevel(
+        checksumAddress,
+        token.newLevel,
+        "", // proof1
+        ""  // proof2
+      );
+      await tx.wait();
+      console.log(`✅ DAO upgrade (same level) successful for ${token.name}`);
+    } catch (err) {
+      const reason = err?.error?.message || err.message || "Unknown error";
+      console.log(`❌ Upgrade failed for ${token.name}: ${reason}`);
+    }
+  }
+}
+
+main().catch((error) => {
+  console.error("❌ Script Failed:", error);
+  process.exit(1);
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

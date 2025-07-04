@@ -1,0 +1,9 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Apply base styles to body */
+body {
+  @apply bg-black text-white font-sans;
+}
+

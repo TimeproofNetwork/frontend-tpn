@@ -1,0 +1,12 @@
+[
+  {
+    "name": "LemonDrop",
+    "symbol": "LMDP",
+    "target": "0x8Aa6E2470Ec02999441b443A831dcAe705c01D16"
+  },
+  {
+    "name": "LemonDrop",
+    "symbol": "LMDP",
+    "target": "0xA1f967793480C164e0412b52B9e6038DBD1c8849"
+  }
+]

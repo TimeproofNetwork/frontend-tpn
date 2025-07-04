@@ -1,0 +1,89 @@
+const { ethers } = require("hardhat");
+
+const TPN_TOKEN = "0x42fb85d1fF667Eb00bc8f52CC04baD7A7eAfD50e";
+const BADGE_NFT = "0x319C0FA14Ba35D62B7317f17f146fD051651fb7B";
+const TOKEN_REGISTRY = "0xeE556A91B2E71D4fb9280C988e9CcA80dDb61D14";
+
+// 📻 Radio Marine Theme – 6 Tokens (last is fingerprint clone)
+const TOKENS = [
+  { name: "sonarflux", symbol: "snf" },
+  { name: "wavecaster", symbol: "wvc" },
+  { name: "beaconcore", symbol: "bcn" },
+  { name: "navstream", symbol: "nav" },
+  { name: "marinepulse", symbol: "mpl" },
+  { name: "marinepulse", symbol: "mpl" } // ❌ Should trigger fingerprint rejection
+];
+
+const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+
+async function main() {
+  const [deployer] = await ethers.getSigners();
+  console.log("🔐 Using deployer:", deployer.address);
+
+  const TPN = await ethers.getContractAt("TPNToken", TPN_TOKEN);
+  const Registry = await ethers.getContractAt("TokenRegistry", TOKEN_REGISTRY);
+
+  const approveTx = await TPN.approve(TOKEN_REGISTRY, ethers.utils.parseUnits("1000", 18));
+  await approveTx.wait();
+  console.log("✅ Approved 1000 TPN to TokenRegistry");
+
+  for (const t of TOKENS) {
+    console.log(`⏳ Deploying: "${t.name}" (${t.symbol})...`);
+
+    const Token = await ethers.getContractFactory("TPNToken");
+    const deployed = await Token.deploy(
+      t.name,
+      t.symbol,
+      18,
+      ethers.utils.parseUnits("1000000", 18),
+      deployer.address,
+      {
+        maxFeePerGas: ethers.utils.parseUnits("50", "gwei"),
+        maxPriorityFeePerGas: ethers.utils.parseUnits("2", "gwei")
+      }
+    );
+    await deployed.deployed();
+    console.log(`📌 Deployed Token (Attempt): "${t.name}" (${t.symbol}) at: ${deployed.address}`);
+
+    try {
+      const tx = await Registry.registerToken(
+        t.name,
+        t.symbol,
+        deployed.address,
+        1, // Trust Level
+        {
+          maxFeePerGas: ethers.utils.parseUnits("50", "gwei"),
+          maxPriorityFeePerGas: ethers.utils.parseUnits("2", "gwei")
+        }
+      );
+      await tx.wait();
+      console.log(`✅ Registered & Badge Minted: "${t.name}" (${t.symbol})`);
+    } catch (err) {
+      const reason =
+        err?.error?.message ||
+        err?.reason ||
+        err?.data?.message ||
+        err.message ||
+        "Unknown";
+      console.log(`❌ Rejected: "${t.name}" (${t.symbol})\n   Reason: ${reason}`);
+    }
+
+    await sleep(8000); // Respect Sepolia rate limits
+  }
+
+  const final = await TPN.balanceOf(deployer.address);
+  console.log("🔎 Final TPN Balance:", ethers.utils.formatUnits(final, 18));
+}
+
+main().catch((error) => {
+  console.error("❌ Script Failed:", error);
+  process.exit(1);
+});
+
+
+
+
+
+
+
+

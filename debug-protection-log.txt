@@ -1,0 +1,28 @@
+[
+  {
+    "name": "KiwiVerse",
+    "symbol": "KVU",
+    "address": "0x2e32C59ca5f4FcD4217bfA1f01947C79c79D868F"
+  },
+  {
+    "name": "BerryChain",
+    "symbol": "BRC",
+    "address": "0x45c68cBE529E8061097B51c757644e1f51174f77"
+  },
+  {
+    "name": "AppleCoin",
+    "symbol": "PNG",
+    "address": "0x483E9063a41D60F61C6B3F49f0591ff8E6305E18"
+  },
+  {
+    "name": "PineappleGold",
+    "symbol": "PNG",
+    "address": "0xA8Fd192866DcB388483dd91E8EB6b7536E3D0C11"
+  },
+  {
+    "name": "ScamZero",
+    "symbol": "SPM",
+    "skipTPN": true,
+    "address": "0xDde53D29591EdabdA65df74693f3143AFA6A314A"
+  }
+]
