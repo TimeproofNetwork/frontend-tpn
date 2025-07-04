@@ -1,10 +1,9 @@
-// pages/api/scanTokenTrustScore.ts
+// /pages/api/scanTokenTrustScore.ts
 
 import { NextApiRequest, NextApiResponse } from "next";
 import { ethers } from "ethers";
 import levenshtein from "fast-levenshtein";
 import TokenRegistryAbi from "@/abi/TokenRegistry.json";
-import { sanitizeInput } from "../../../scripts/sanitizeInputs";
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -44,8 +43,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ output: "❌ Invalid or missing token name/symbol." });
   }
 
-  const name = sanitizeInput(rawName);
-  const symbol = sanitizeInput(rawSymbol);
+  const name = sanitize(rawName);
+  const symbol = sanitize(rawSymbol);
   const unifiedInput = unified(name, symbol);
   const isSC = symbol.length <= 3;
 
@@ -175,6 +174,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   return res.status(200).json({ output: lines.join("\n") });
 }
+
 
 
 
