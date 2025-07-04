@@ -3,7 +3,7 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { ethers } from "ethers";
 import levenshtein from "fast-levenshtein";
-import TokenRegistryAbi from "../../../artifacts/contracts/TokenRegistry.sol/TokenRegistry.json";
+import TokenRegistryAbi from "@/abi/TokenRegistry.json";
 import { sanitizeInput } from "../../../scripts/sanitizeInputs";
 import dotenv from "dotenv";
 dotenv.config();
@@ -161,22 +161,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (clusterOutput) lines.push(clusterOutput.trim());
   lines.push(`📊 Estimated Trust Score: ${score}/100`);
 
+  if (score === 100) {
+    lines.push(`✅ Excellent — Audit and Exchange Verified — Maximum Trust Achieved.`);
+  } else if (score === 90) {
+    lines.push(`🟢 Exchange Verified — High Trust.`);
+  } else if (score === 60 && isBase && clusterIndices.length === 0) {
+    lines.push(`🟢 Root Token — No Suspicion Clusters Found.`);
+  } else if (score === 50) {
+    lines.push(`🟡 Caution — Investigate history before trusting.`);
+  } else {
+    lines.push(`❗ Recommendation: Investigate token lineage before trusting.`);
+  }
 
-// ✅ Final message block with surgical correction
-if (score === 100) {
-  lines.push(`✅ Excellent — Audit and Exchange Verified — Maximum Trust Achieved.`);
-} else if (score === 90) {
-  lines.push(`🟢 Exchange Verified — High Trust.`);
-} else if (score === 60 && isBase && clusterIndices.length === 0) {
-  lines.push(`🟢 Root Token — No Suspicion Clusters Found.`);
-} else if (score === 50) {
-  lines.push(`🟡 Caution — Investigate history before trusting.`);
-} else {
-  lines.push(`❗ Recommendation: Investigate token lineage before trusting.`);
+  return res.status(200).json({ output: lines.join("\n") });
 }
 
-return res.status(200).json({ output: lines.join("\n") });
-}
 
 
 
