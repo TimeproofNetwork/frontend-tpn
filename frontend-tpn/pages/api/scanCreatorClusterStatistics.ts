@@ -1,6 +1,8 @@
+// /pages/api/scanCreatorClusterStatistics.ts
+
 import type { NextApiRequest, NextApiResponse } from "next";
-import { exec } from "child_process";
-import path from "path";
+import { ethers } from "ethers";
+import TokenRegistryAbi from "@/abi/TokenRegistry.json";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -10,7 +12,18 @@ type Data = {
   error?: string;
 };
 
-export default function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
+const TPN_REGISTRY = "0xeE556A91B2E71D4fb9280C988e9CcA80dDb61D14";
+
+interface TokenInfo {
+  name: string;
+  symbol: string;
+  tokenAddress: string;
+  registeredBy: string;
+  timestamp?: number;
+  index: number;
+}
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "❌ Only POST method is allowed." });
   }
@@ -24,35 +37,53 @@ export default function handler(req: NextApiRequest, res: NextApiResponse<Data>)
     });
   }
 
-  const rootDir = path.resolve(process.cwd(), "../");
-  const scriptPath = path.join(rootDir, "scripts", "scanCreatorClusterStatistics.js");
+  const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
+  const registry = new ethers.Contract(TPN_REGISTRY, TokenRegistryAbi.abi, provider);
 
-  const command = `cd "${rootDir}" && CREATOR="${creator}" SEPOLIA_RPC_URL="${rpcUrl}" npx hardhat run "${scriptPath}" --network sepolia`;
+  let tokens: TokenInfo[] = [];
 
-  exec(command, { maxBuffer: 1024 * 5000 }, (error, stdout, stderr) => {
-    const raw = stdout?.trim() || "";
-    const errOutput = stderr?.trim() || "";
-
-    console.log("🧪 STDOUT START >>>>>>>>>>");
-    console.log(raw);
-    console.log("🧪 STDOUT END <<<<<<<<<<<");
-    console.log("🧪 STDERR >>>>>", errOutput);
-
-    if (error || errOutput) {
-      const errMessage = errOutput || error?.message || "Unknown error";
-      return res.status(500).json({
-        error: `❌ Creator Cluster Statistics Scan Failed:\n\n${errMessage}`,
-      });
-    }
-
-    // ✂️ Trim out the Output Start section if it exists
-    const cleaned = raw.split("📤 Output Start")[0].trim();
-
-    return res.status(200).json({
-      output: cleaned || "⚠️ No output returned.",
+  try {
+    const rawTokens = await registry.getTokenLogbook();
+    tokens = rawTokens.map((token: any, index: number): TokenInfo => ({
+      name: token.name,
+      symbol: token.symbol,
+      tokenAddress: token.tokenAddress,
+      registeredBy: token.registeredBy,
+      timestamp: token.timestamp ? Number(token.timestamp.toString()) : undefined,
+      index,
+    }));
+  } catch (err: any) {
+    return res.status(500).json({
+      error: `❌ Failed to fetch token logbook.\n\n${err.message || String(err)}`,
     });
+  }
+
+  const creatorTokens = tokens.filter((token) => token.registeredBy.toLowerCase() === creator.toLowerCase());
+  const clusterSize = creatorTokens.length;
+
+  const outputLines: string[] = [];
+  outputLines.push(`🔍 Creator Cluster Statistics`);
+  outputLines.push(`🧑 Creator Address: ${creator}`);
+  outputLines.push(`\n📊 Total Tokens Created: ${clusterSize}`);
+
+  if (clusterSize > 0) {
+    creatorTokens.forEach((token) => {
+      const dateStr = token.timestamp
+        ? new Date(token.timestamp * 1000).toLocaleString("en-US")
+        : "Unknown Date";
+      outputLines.push(
+        `\n• ${token.name} (${token.symbol}) | Address: ${token.tokenAddress} | Registered: ${dateStr} | Index #${token.index}`
+      );
+    });
+  } else {
+    outputLines.push(`\n✅ No tokens found for this creator in registry.`);
+  }
+
+  return res.status(200).json({
+    output: outputLines.join("\n"),
   });
 }
+
 
 
 
