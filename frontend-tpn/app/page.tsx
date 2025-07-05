@@ -7,7 +7,7 @@ import { getDefaultWallets, RainbowKitProvider } from '@rainbow-me/rainbowkit';
 import TokenList from '@/app/components/TokenList';
 import TokenRegister from '@/app/components/TokenRegister';
 import Hero from '@/app/components/Hero';
-import SuggestionBox from '@/components/SuggestionBox';  // ✅ Step 4: Added
+import SuggestionBox from '@/components/SuggestionBox';
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -36,7 +36,6 @@ export default function Home() {
         <main className="min-h-screen bg-black text-white font-sans">
           <Hero />
 
-          {/* ✅ Intelligence Button */}
           <div className="flex justify-center mt-6">
             <Link href="/intelligence" target="_blank">
               <button className="flex items-center gap-2 px-6 py-3 rounded-full bg-black border border-gray-700 text-white font-semibold shadow-md hover:shadow-lg hover:bg-gray-900 transition">
@@ -46,7 +45,6 @@ export default function Home() {
             </Link>
           </div>
 
-          {/* ✅ How TPN Protects */}
           <section className="bg-[#0b0e14] text-white py-16 px-6">
             <div className="max-w-6xl mx-auto">
               <h3 className="text-2xl font-bold mb-8 flex items-center">
@@ -76,19 +74,17 @@ export default function Home() {
             </div>
           </section>
 
-          {/* ✅ Token Registration */}
           <TokenRegister />
 
-          {/* ✅ Suggestion Box (Step 4) */}
-          <SuggestionBox />
-
-          {/* ✅ Recent Tokens */}
           <TokenList />
+
+          <SuggestionBox />
         </main>
       </RainbowKitProvider>
     </WagmiConfig>
   );
 }
+
 
 
 

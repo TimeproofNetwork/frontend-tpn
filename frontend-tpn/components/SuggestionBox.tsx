@@ -7,7 +7,6 @@ export default function SuggestionBox() {
 
   const handleSubmit = () => {
     if (!feedback.trim()) return alert('Please enter your feedback before submitting.');
-    // 🔗 Phase 1: Manually send this data (e.g., Google Form or Email)
     console.log('Feedback:', feedback);
     console.log('Contact (optional):', contact);
     setSubmitted(true);
@@ -36,10 +35,21 @@ export default function SuggestionBox() {
         onChange={(e) => setContact(e.target.value)}
       />
 
+      <div className="mt-4 text-center">
+        <a
+          href="https://forms.gle/ZYe5n7Kpvqk3ZBFdA"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-block px-5 py-3 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold shadow-md"
+        >
+          📝 Request 100 TPN for Testing
+        </a>
+      </div>
+
       <button
         onClick={handleSubmit}
         disabled={!feedback.trim() || submitted}
-        className="w-full py-3 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full py-3 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed mt-4"
       >
         {submitted ? '✅ Thank You!' : '🔄 Submit Feedback'}
       </button>
@@ -47,8 +57,9 @@ export default function SuggestionBox() {
       <p className="mt-4 text-xs text-[#888888] text-center">
         🔒 <strong>TPN keeps your feedback private and secure.</strong><br />
         <img src="/emblem.png" alt="TPN Emblem" className="inline w-4 h-4 mr-1 ml-1" />
-        <span className="text-white font-medium">Timeproof Network</span> — The Trust Layer for Web3.
+        <span className="text-white font-medium">Timeproof Network</span> — The Trust Layer for Web3 Assets.
       </p>
     </div>
   );
 }
+
