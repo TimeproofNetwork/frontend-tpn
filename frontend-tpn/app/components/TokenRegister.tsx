@@ -198,16 +198,15 @@ export default function TokenRegister() {
   return (
     <div className="max-w-xl mx-auto mt-12 p-6 bg-black text-white rounded-2xl shadow-2xl relative">
       <div className="flex items-center justify-center mb-6 space-x-2">
-  <h2 className="text-2xl font-bold mb-6 text-center flex items-center justify-center gap-2">
-  <img
-    src="/emblem.png"
-    alt="TPN Emblem"
-    className="w-6 h-6 md:w-7 md:h-7"
-  />
-  Register a New Token
-  </h2>
-
-  </div>
+        <h2 className="text-2xl font-bold mb-6 text-center flex items-center justify-center gap-2">
+          <img
+            src="/emblem.png"
+            alt="TPN Emblem"
+            className="w-6 h-6 md:w-7 md:h-7"
+          />
+          Register a New Token
+        </h2>
+      </div>
 
       <input
         type="text"
@@ -261,9 +260,37 @@ export default function TokenRegister() {
         />
       )}
 
+      <div className="bg-[#1A1A1A] border border-[#333333] rounded-2xl p-4 text-white shadow-lg mb-3">
+        <h3 className="text-lg font-semibold mb-2">⚠️ Important Notice</h3>
+        <p className="text-[#CCCCCC] text-sm leading-relaxed">
+          Before registering your token, please ensure your wallet holds at least <strong className="text-white">100 TPN</strong> to pay the registration fee.
+          <br /><br />
+          Even if MetaMask does not display your TPN visually, our system reads your balance directly from the blockchain to verify eligibility.
+          <br /><br />
+          👉 Use the <strong>“Check TPN Balance”</strong> button above to confirm.
+        </p>
+        <p className="mt-3 text-xs text-[#888888]">
+          🔒 <strong>TPN keeps your transaction private and secure.</strong> 
+          <img src="/emblem.png" alt="TPN Emblem" className="inline w-4 h-4 ml-1 mr-1" />
+          <span className="font-medium text-white">Timeproof Network</span> — The Trust Layer for Web3.
+        </p>
+      </div>
+
+      {/* ✅ Step 3: Optional Etherscan Link */}
+      <div className="mt-3 text-xs text-[#CCCCCC] text-center">
+        🔗 <a
+          href="https://sepolia.etherscan.io/token/0x42fb85d1fF667Eb00bc8f52CC04baD7A7eAfD50e"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:text-blue-400"
+        >
+          Alternatively, check your TPN balance directly on Sepolia Etherscan
+        </a>
+      </div>
+
       <button
         onClick={handleRegister}
-        className="w-full bg-purple-700 hover:bg-purple-600 transition p-3 rounded font-semibold shadow-md hover:shadow-purple-700 active:scale-95"
+        className="w-full bg-purple-700 hover:bg-purple-600 transition p-3 rounded font-semibold shadow-md hover:shadow-purple-700 active:scale-95 mt-4"
       >
         🚀 Register Token (100 TPN)
       </button>
@@ -280,7 +307,6 @@ export default function TokenRegister() {
         </div>
       )}
 
-      {/* Hidden modal trigger */}
       <div className="hidden">
         <ConnectButton.Custom>
           {({ openConnectModal }) => (
@@ -291,13 +317,14 @@ export default function TokenRegister() {
         </ConnectButton.Custom>
       </div>
 
-      {/* Bottom wallet button */}
       <div className="mt-8 flex justify-center">
         <ConnectButton />
       </div>
     </div>
   );
 }
+
+
 
 
 

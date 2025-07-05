@@ -7,6 +7,7 @@ import { getDefaultWallets, RainbowKitProvider } from '@rainbow-me/rainbowkit';
 import TokenList from '@/app/components/TokenList';
 import TokenRegister from '@/app/components/TokenRegister';
 import Hero from '@/app/components/Hero';
+import SuggestionBox from '@/components/SuggestionBox';  // ✅ Step 4: Added
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -78,7 +79,8 @@ export default function Home() {
           {/* ✅ Token Registration */}
           <TokenRegister />
 
-          {/* ❌ Removed the duplicate ConnectButton block here */}
+          {/* ✅ Suggestion Box (Step 4) */}
+          <SuggestionBox />
 
           {/* ✅ Recent Tokens */}
           <TokenList />
@@ -87,6 +89,7 @@ export default function Home() {
     </WagmiConfig>
   );
 }
+
 
 
 
