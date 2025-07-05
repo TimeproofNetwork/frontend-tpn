@@ -1,4 +1,4 @@
-// ✅ /frontend-tpn/components/CheckTPNBalance.tsx (Fully Fixed & Consistent)
+// ✅ /frontend-tpn/components/CheckTPNBalance.tsx (Production Locked — Fully Fixed)
 
 import { useAccount, useContractRead, useNetwork } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
@@ -93,6 +93,7 @@ export default function CheckTPNBalance() {
     </div>
   );
 }
+
 
 
 

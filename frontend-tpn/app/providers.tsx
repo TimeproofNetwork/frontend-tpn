@@ -1,4 +1,4 @@
-// app/providers.tsx
+// ✅ /app/providers.tsx (Production Locked — No Changes)
 
 "use client";
 
@@ -55,6 +55,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     </WagmiConfig>
   );
 }
+
 
 
 

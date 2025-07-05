@@ -8,6 +8,7 @@ import TokenList from '@/app/components/TokenList';
 import TokenRegister from '@/app/components/TokenRegister';
 import Hero from '@/app/components/Hero';
 import SuggestionBox from '@/components/SuggestionBox';
+import RequestTPN from '@/components/RequestTPN';  // ✅ Added RequestTPN
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -76,6 +77,8 @@ export default function Home() {
 
           <TokenRegister />
 
+          <RequestTPN />  {/* ✅ Added back as required */}
+
           <TokenList />
 
           <SuggestionBox />
@@ -84,6 +87,7 @@ export default function Home() {
     </WagmiConfig>
   );
 }
+
 
 
 
