@@ -1,4 +1,4 @@
-// ✅ /frontend-tpn/components/RequestTPN.tsx (TPN Token Request Only)
+// ✅ /frontend-tpn/components/RequestTPN.tsx (Production Fixed with Responder Link)
 
 import { useState } from 'react';
 
@@ -10,7 +10,7 @@ export default function RequestTPN() {
       alert('Please enter your wallet address before submitting.');
       return;
     }
-    window.open('https://docs.google.com/forms/d/11I9JE8SPgCFuQ-n2BV0zEgnVR-BK2tGgyRpv4NC3pak/edit', '_blank');
+    window.open('https://forms.gle/rHRYavX97yf48yKWA', '_blank');
   };
 
   return (
@@ -44,3 +44,5 @@ export default function RequestTPN() {
     </div>
   );
 }
+
+

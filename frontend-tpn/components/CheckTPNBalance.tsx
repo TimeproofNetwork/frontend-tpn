@@ -1,12 +1,10 @@
-// ✅ /frontend-tpn/components/CheckTPNBalance.tsx (Production Locked — Fully Fixed)
-
 import { useAccount, useContractRead, useNetwork } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { ethers, BigNumber } from 'ethers';
 import { useEffect, useState } from 'react';
 import TPN_ABI from '@/utils/TPN_ABI.json';
 
-const TPN_TOKEN_ADDRESS = '0x42fb85d1fF667Eb00bc8f52CC04baD7A7eAfD50e';  // ✅ Sepolia TPN Token
+const TPN_TOKEN_ADDRESS = '0x42fb85d1fF667Eb00bc8f52CC04baD7A7eAfD50e';
 
 export default function CheckTPNBalance() {
   const { address, isConnected } = useAccount();
@@ -17,7 +15,7 @@ export default function CheckTPNBalance() {
   const [isChecking, setIsChecking] = useState(false);
   const [triggerWalletModal, setTriggerWalletModal] = useState<() => void>(() => () => {});
 
-  const { data, refetch } = useContractRead({
+  const { refetch } = useContractRead({
     address: TPN_TOKEN_ADDRESS,
     abi: TPN_ABI,
     functionName: 'balanceOf',
@@ -27,6 +25,10 @@ export default function CheckTPNBalance() {
   });
 
   const handleCheck = async () => {
+    console.log('📡 Connected:', isConnected);
+    console.log('🌐 Network:', chain?.id);
+    console.log('👛 Address:', address);
+
     if (!isConnected) {
       triggerWalletModal();
       return;
@@ -39,13 +41,22 @@ export default function CheckTPNBalance() {
 
     setIsChecking(true);
 
-    const result = await refetch();
-    const raw = result.data as BigNumber;
+    try {
+      const result = await refetch();
+      console.log('📊 Raw result:', result);
 
-    if (raw && BigNumber.isBigNumber(raw)) {
-      const formatted = parseFloat(ethers.utils.formatUnits(raw, 18));
-      setBalance(formatted);
-    } else {
+      const raw = result.data as BigNumber;
+
+      if (raw && BigNumber.isBigNumber(raw)) {
+        const formatted = parseFloat(ethers.utils.formatUnits(raw, 18));
+        console.log('✅ Fetched Balance:', formatted);
+        setBalance(formatted);
+      } else {
+        console.log('❌ Invalid balance:', raw);
+        setBalance(0);
+      }
+    } catch (error) {
+      console.error('❌ Fetch Error:', error);
       setBalance(0);
     }
 
@@ -93,6 +104,12 @@ export default function CheckTPNBalance() {
     </div>
   );
 }
+
+
+
+
+
+
 
 
 
