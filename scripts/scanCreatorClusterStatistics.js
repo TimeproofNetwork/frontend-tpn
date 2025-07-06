@@ -3,9 +3,6 @@ const { sanitizeInput } = require("./sanitizeInputs");
 
 const TOKEN_REGISTRY = "0xeE556A91B2E71D4fb9280C988e9CcA80dDb61D14";
 
-// ----------------------------
-// Edit Distance Function
-// ----------------------------
 function editDistance(a, b) {
   const dp = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
   for (let i = 0; i <= a.length; i++) dp[i][0] = i;
@@ -20,9 +17,6 @@ function editDistance(a, b) {
   return dp[a.length][b.length];
 }
 
-// ----------------------------
-// Canonical Golden Clustering Rule
-// ----------------------------
 function isSuspicious(candidate, root) {
   const n1 = sanitizeInput(candidate.name);
   const n2 = sanitizeInput(root.name);
@@ -45,15 +39,12 @@ function isSuspicious(candidate, root) {
   return false;
 }
 
-// ----------------------------
-// Main
-// ----------------------------
 async function scanCreatorClusterStatistics() {
   const creatorEnv = process.env.CREATOR;
   const [deployer] = await ethers.getSigners();
   const Registry = await ethers.getContractAt("TokenRegistry", TOKEN_REGISTRY);
 
-  const usedWallet = creatorEnv || deployer.address;
+  const usedWallet = (creatorEnv || deployer.address).toLowerCase();
   console.log(`\n🔍 Scanning registered tokens using: ${usedWallet}`);
   console.log("📚 Fetching registered tokens from logbook...");
 
@@ -65,7 +56,7 @@ async function scanCreatorClusterStatistics() {
         name: token.name,
         symbol: token.symbol,
         address: token.tokenAddress,
-        creator: token.registeredBy,
+        creator: token.registeredBy.toLowerCase(),
         timestamp: token.timestamp.toNumber(),
         logbookIndex: i,
       });
@@ -94,24 +85,26 @@ async function scanCreatorClusterStatistics() {
     }
 
     if (cluster.length > 1) {
-      cluster.forEach((t) => clustered.add(t.logbookIndex));
+      cluster.forEach(t => clustered.add(t.logbookIndex));
       clusters.push(cluster);
     }
   }
 
-  // ----------------------------
-  // Creator Score Summary
-  // ----------------------------
-  const scoreMap = {}; // creator => { clusters: Set, total: count }
+  const scoreMap = {};
+
+  tokens.forEach(token => {
+    const addr = token.creator;
+    if (!scoreMap[addr]) {
+      scoreMap[addr] = { clusters: new Set(), total: 0, clusterSize: 0 };
+    }
+    scoreMap[addr].total += 1;
+  });
 
   clusters.forEach((cluster, idx) => {
     const counted = new Set();
-    cluster.forEach((token) => {
+    cluster.forEach(token => {
       const addr = token.creator;
-      if (!scoreMap[addr]) {
-        scoreMap[addr] = { clusters: new Set(), total: 0 };
-      }
-      scoreMap[addr].total += 1;
+      scoreMap[addr].clusterSize += 1;
       if (!counted.has(addr)) {
         scoreMap[addr].clusters.add(idx);
         counted.add(addr);
@@ -120,40 +113,46 @@ async function scanCreatorClusterStatistics() {
   });
 
   const scores = Object.entries(scoreMap)
-    .filter(([addr]) => addr.toLowerCase() === usedWallet.toLowerCase())
-    .map(([creator, data]) => ({
-      creator,
-      clusterCount: data.clusters.size,
-      tokenCount: data.total,
-    }));
+    .map(([creator, data]) => {
+      const totalClusters = data.clusters.size;
+      const totalClusterSize = data.clusterSize;
+      const crs = totalClusters > 0 ? (totalClusterSize * totalClusters) + (totalClusters / data.total) : 0;
+      return {
+        creator,
+        clusterCount: totalClusters,
+        clusterSize: totalClusterSize,
+        crs: crs.toFixed(2),
+      };
+    })
+    .sort((a, b) => Number(b.crs) - Number(a.crs));
 
-  scores.sort((a, b) => b.clusterCount - a.clusterCount || b.tokenCount - a.tokenCount);
+  console.log(`\n🔎 Identified ${clusters.length} suspicion clusters.`);
+  console.log("\n📊 Ranked Creator Cluster Scores:\n");
 
-  let output = "";
+  const top = scores[0];
+  const targetIndex = scores.findIndex(s => s.creator === usedWallet);
+  const target = targetIndex !== -1 ? scores[targetIndex] : null;
 
-  if (scores.length === 0) {
-    console.log(`\n⚠️ No clusters found for ${usedWallet}`);
-    output = `⚠️ No clusters found for ${usedWallet}`;
-  } else {
-    console.log(`\n🔎 Identified ${clusters.length} suspicion clusters.`);
-    console.log("\n📊 Ranked Creator Cluster Scores:\n");
-
-    scores.forEach((entry, i) => {
-      const { creator, clusterCount, tokenCount } = entry;
-      const line = `#${i + 1}  🧑‍💻 ${creator} → Clusters: ${clusterCount} | Tokens: ${tokenCount}`;
-      console.log(line);
-      output += line + "\n";
-    });
+  if (top) {
+    console.log(`#1  🧑‍💻 ${top.creator} → Clusters: ${top.clusterCount} | Cluster Size: ${top.clusterSize}`);
   }
 
-  // ✅ FINAL CONSOLE OUTPUT FOR FRONTEND RESPONSE
-  console.log("\n📤 Output Start\n" + output.trim());
+  if (target) {
+    const rank = targetIndex + 1;
+    console.log(`#${rank}  🧑‍💻 ${target.creator} → Clusters: ${target.clusterCount} | Cluster Size: ${target.clusterSize}`);
+  } else {
+    console.log(`❌ No clusters found for ${usedWallet}`);
+  }
 }
 
-scanCreatorClusterStatistics().catch((err) => {
+scanCreatorClusterStatistics().catch(err => {
   console.error("❌ Scan Failed:", err);
   process.exit(1);
 });
+
+
+
+
 
 
 

@@ -1,5 +1,3 @@
-// /pages/api/scanCreatorClusterStatistics.ts
-
 import type { NextApiRequest, NextApiResponse } from "next";
 import { ethers } from "ethers";
 import TokenRegistryAbi from "@/abi/TokenRegistry.json";
@@ -11,10 +9,6 @@ const TPN_REGISTRY = "0xeE556A91B2E71D4fb9280C988e9CcA80dDb61D14";
 
 function sanitize(str: string): string {
   return str.toLowerCase().replace(/[^a-z0-9]/g, "");
-}
-
-function unified(name: string, symbol: string): string {
-  return sanitize(name + symbol);
 }
 
 function editDistance(a: string, b: string): number {
@@ -56,11 +50,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ output: "❌ Only POST method is allowed." });
   }
 
-  const creator = req.body.creator?.trim();
+  const creatorInput = req.body.creator?.trim().toLowerCase() || "";
   const rpcUrl = process.env.SEPOLIA_RPC_URL;
-
-  if (!creator || !rpcUrl) {
-    return res.status(400).json({ output: `❌ Creator address or RPC URL missing from request or environment!` });
+  if (!rpcUrl) {
+    return res.status(400).json({ output: `❌ RPC URL missing from environment!` });
   }
 
   const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
@@ -74,7 +67,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         name: token.name,
         symbol: token.symbol,
         address: token.tokenAddress,
-        creator: token.registeredBy,
+        creator: token.registeredBy.toLowerCase(),
         timestamp: token.timestamp ? Number(token.timestamp.toString()) : 0,
         index,
       });
@@ -84,8 +77,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const lines: string[] = [];
-
-  lines.push(`\n🔍 Scanning registered tokens using: ${creator}`);
+  lines.push(`\n🔍 Scanning registered tokens using: ${creatorInput}`);
   lines.push("📚 Fetching registered tokens from logbook...");
   lines.push(`✅ Fetched ${tokens.length} tokens from registry.`);
 
@@ -112,49 +104,73 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
   }
 
-  const scoreMap: Record<string, { clusters: Set<number>, total: number }> = {};
+  const creatorMap: Record<string, { clusters: Set<number>, total: number, clusterSize: number }> = {};
+
+  tokens.forEach(token => {
+    const addr = token.creator;
+    if (!creatorMap[addr]) {
+      creatorMap[addr] = { clusters: new Set(), total: 0, clusterSize: 0 };
+    }
+    creatorMap[addr].total += 1;
+  });
 
   clusters.forEach((cluster, idx) => {
     const counted = new Set<string>();
     cluster.forEach((token: any) => {
       const addr = token.creator;
-      if (!scoreMap[addr]) {
-        scoreMap[addr] = { clusters: new Set(), total: 0 };
-      }
-      scoreMap[addr].total += 1;
+      creatorMap[addr].clusterSize += 1;
       if (!counted.has(addr)) {
-        scoreMap[addr].clusters.add(idx);
+        creatorMap[addr].clusters.add(idx);
         counted.add(addr);
       }
     });
   });
 
-  const scores = Object.entries(scoreMap)
-    .filter(([addr]) => addr.toLowerCase() === creator.toLowerCase())
-    .map(([creator, data]) => ({
-      creator,
-      clusterCount: data.clusters.size,
-      tokenCount: data.total,
-    }));
+  const scores = Object.entries(creatorMap)
+    .map(([creator, data]) => {
+      const totalClusters = data.clusters.size;
+      const totalClusterSize = data.clusterSize;
+      const crs = totalClusters > 0 ? (totalClusterSize * totalClusters) + (totalClusters / data.total) : 0;
+      return {
+        creator,
+        clusterCount: totalClusters,
+        clusterSize: totalClusterSize,
+        crs: crs.toFixed(2),
+      };
+    })
+    .sort((a, b) => Number(b.crs) - Number(a.crs));
 
-  scores.sort((a, b) => b.clusterCount - a.clusterCount || b.tokenCount - a.tokenCount);
+  lines.push(`\n🔎 Identified ${clusters.length} suspicion clusters.`);
+  lines.push("\n📊 Ranked Creator Cluster Scores:\n");
 
-  if (scores.length === 0) {
-    lines.push(`\n⚠️ No clusters found for ${creator}`);
-  } else {
-    lines.push(`\n🔎 Identified ${clusters.length} suspicion clusters.`);
-    lines.push("\n📊 Ranked Creator Cluster Scores:\n");
+  const top = scores[0];
+  const targetIndex = scores.findIndex(s => s.creator === creatorInput);
+  const target = targetIndex !== -1 ? scores[targetIndex] : null;
 
-    scores.forEach((entry, i) => {
-      const { creator, clusterCount, tokenCount } = entry;
-      const line = `#${i + 1}  🧑‍💻 ${creator} → Clusters: ${clusterCount} | Tokens: ${tokenCount}`;
-      lines.push(line);
-    });
+  if (top) {
+    lines.push(`#1  🧑‍💻 ${top.creator} → Clusters: ${top.clusterCount} | Cluster Size: ${top.clusterSize}`);
   }
 
+  if (target) {
+    const rank = targetIndex + 1;
+    lines.push(`#${rank}  🧑‍💻 ${target.creator} → Clusters: ${target.clusterCount} | Cluster Size: ${target.clusterSize}`);
+  } else {
+    lines.push(`❌ No clusters found for ${creatorInput}`);
+  }
 
   return res.status(200).json({ output: lines.join("\n") });
 }
+
+
+
+
+
+
+
+
+
+
+
 
 
 
