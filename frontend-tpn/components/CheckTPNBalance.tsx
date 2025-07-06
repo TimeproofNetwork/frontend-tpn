@@ -1,10 +1,6 @@
-import { useAccount, useContractRead, useNetwork } from 'wagmi';
+import { useAccount, useNetwork } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { ethers, BigNumber } from 'ethers';
 import { useEffect, useState } from 'react';
-import TPN_ABI from '@/utils/TPN_ABI.json';
-
-const TPN_TOKEN_ADDRESS = '0x42fb85d1fF667Eb00bc8f52CC04baD7A7eAfD50e';
 
 export default function CheckTPNBalance() {
   const { address, isConnected } = useAccount();
@@ -14,15 +10,6 @@ export default function CheckTPNBalance() {
   const [balance, setBalance] = useState<number>(0);
   const [isChecking, setIsChecking] = useState(false);
   const [triggerWalletModal, setTriggerWalletModal] = useState<() => void>(() => () => {});
-
-  const { refetch } = useContractRead({
-    address: TPN_TOKEN_ADDRESS,
-    abi: TPN_ABI,
-    functionName: 'balanceOf',
-    args: [address],
-    watch: false,
-    enabled: false,
-  });
 
   const handleCheck = async () => {
     console.log('📡 Connected:', isConnected);
@@ -42,21 +29,24 @@ export default function CheckTPNBalance() {
     setIsChecking(true);
 
     try {
-      const result = await refetch();
-      console.log('📊 Raw result:', result);
+      const response = await fetch('/api/checkTPNBalance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wallet: address }),
+      });
 
-      const raw = result.data as BigNumber;
+      const data = await response.json();
+      console.log('📊 API Response:', data);
 
-      if (raw && BigNumber.isBigNumber(raw)) {
-        const formatted = parseFloat(ethers.utils.formatUnits(raw, 18));
-        console.log('✅ Fetched Balance:', formatted);
-        setBalance(formatted);
+      const fetchedBalance = parseFloat(data.balance);
+
+      if (!isNaN(fetchedBalance)) {
+        setBalance(fetchedBalance);
       } else {
-        console.log('❌ Invalid balance:', raw);
         setBalance(0);
       }
     } catch (error) {
-      console.error('❌ Fetch Error:', error);
+      console.error('❌ API Fetch Error:', error);
       setBalance(0);
     }
 
@@ -104,6 +94,7 @@ export default function CheckTPNBalance() {
     </div>
   );
 }
+
 
 
 
