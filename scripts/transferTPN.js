@@ -1,9 +1,9 @@
 const { ethers } = require("hardhat");
 
 async function main() {
-  const TPN_TOKEN = "0x42fb85d1fF667Eb00bc8f52CC04baD7A7eAfD50e";    // ✅ TPN Token Contract
+  const TPN_TOKEN = "0xA9ddbBFa1D21330D646ae32AA2a64A46F7c05572";    // ✅ TPN Token Contract
   const recipient = "0x0BFCe2536b3b497B2520f4d05D9BC6676BFfFcB8";    // 🔑 Replace with actual recipient
-  const amount = ethers.utils.parseUnits("100000000", 18);                 // ✅ Amount: 100 TPN (adjust as needed)
+  const amount = ethers.utils.parseUnits("100000000", 18);           // ✅ Amount: 100 TPN (adjust as needed)
 
   const [deployer] = await ethers.getSigners();                      // 💳 Your wallet (must hold TPN)
   const token = await ethers.getContractAt("TPNToken", TPN_TOKEN);

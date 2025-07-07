@@ -31,7 +31,7 @@ async function main() {
 
   const registry = await ethers.getContractAt(
     "TokenRegistry",
-    "0xB1c452EfD5F16b38b8628c248baA85db53031CDD" // ✅ FINAL LOCKED TokenRegistry (Updated)
+    "0x92aCF7E58E8C65d0Aad3ed4B252c064737Ad9B52" // ✅ FINAL LOCKED TokenRegistry (Updated)
   );
 
   const sanitizedNames = names.map(sanitizeName);

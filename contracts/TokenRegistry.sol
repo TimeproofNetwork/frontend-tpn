@@ -318,6 +318,7 @@ function getQuarantinedToken(uint256 index) external view returns (
     // 🔍 Generate Hashes (Avoid function call overhead)
     bytes32 nameSymbolHash = keccak256(abi.encodePacked(sanitizedName, sanitizedSymbol));
     bytes32 fingerprintHash = keccak256(abi.encodePacked(sanitizedName, sanitizedSymbol, msg.sender));
+    require(nameSymbolToAddress[nameSymbolHash] == address(0), "Layer2: Fingerprint already used");
 
 
     // 🔐 Layer 2–5: Security Filters
@@ -378,7 +379,8 @@ function getQuarantinedToken(uint256 index) external view returns (
     emit TokenRegisteredCompressed(nameSymbolHash, tokenAddress, msg.sender, trustLevel);
 
 }
-    function mintBadgeFor(address tokenAddress) external nonReentrant {
+    function mintBadgeFor(address tokenAddress) external nonReentrant notPaused {
+
     TokenInfo memory info = registeredTokens[tokenAddress];
     require(info.isRegistered, "Token not registered");
     require(info.registeredBy == msg.sender, "Not token creator");
@@ -396,7 +398,8 @@ function setDAO(address newDAO) external onlyOwner {
     dao = newDAO;
     emit DAOSet(newDAO);
 }
-function daoBan(string memory name, string memory symbol, bool stripBadge) external onlyDAO {
+function daoBan(string memory name, string memory symbol, bool stripBadge) external onlyDAO notPaused {
+
     bytes32 banHash = visualID(name, symbol);
 
     require(!quarantineList[banHash], "Token is quarantined - unquarantine first");
@@ -429,7 +432,8 @@ function daoBan(string memory name, string memory symbol, bool stripBadge) exter
     }
 }
 
-function daoQuarantine(string memory name, string memory symbol) external onlyDAO {
+function daoQuarantine(string memory name, string memory symbol) external onlyDAO notPaused {
+
     bytes32 id = visualID(name, symbol);
 
     require(!globalBanList[id], "Token is globally banned");
@@ -439,7 +443,8 @@ function daoQuarantine(string memory name, string memory symbol) external onlyDA
     emit TokenQuarantined(name, symbol);
 }
 
-function unquarantineToken(string memory name, string memory symbol) external onlyDAO {
+function unquarantineToken(string memory name, string memory symbol) external onlyDAO notPaused {
+
     bytes32 id = visualID(name, symbol);
     quarantineList[id] = false;
     emit TokenUnquarantined(name, symbol);
@@ -451,7 +456,7 @@ function daoUpgradeTrustLevel(
     string memory proof1,
     string memory proof2
 ) 
-    external onlyDAO {
+    external onlyDAO notPaused {
 
     require(token != address(0), "Invalid token");
     require(registeredTokens[token].isRegistered, "Token not registered");
@@ -485,7 +490,7 @@ function daoDowngradeTrustLevel(
     string memory proof1,
     string memory /* proof2 */
 ) 
-    external onlyDAO {
+    external onlyDAO notPaused {
 
     require(token != address(0), "Invalid token");
     require(registeredTokens[token].isRegistered, "Token not registered");
@@ -533,36 +538,42 @@ function getTokenByNameSymbol(string memory name, string memory symbol) internal
     // ════════════════════════════════
 
     function selfHeal(address[] memory all) external onlyOwner {
-        for (uint256 i = 0; i < all.length; i++) {
-            address token1 = all[i];
-            if (!registeredTokens[token1].isRegistered) continue;
-            TokenInfo memory info1 = registeredTokens[token1];
-            bytes32 nameSymbolHash = visualID(info1.name, info1.symbol);
-            address oldest = token1;
-            uint256 oldestTime = info1.timestamp;
+    for (uint256 i = 0; i < all.length; i++) {
+        address token1 = all[i];
+        if (!registeredTokens[token1].isRegistered) continue;
+        TokenInfo memory info1 = registeredTokens[token1];
+        bytes32 nameSymbolHash = visualID(info1.name, info1.symbol);
+        address oldest = token1;
+        uint256 oldestTime = info1.timestamp;
 
-            for (uint256 j = 0; j < all.length; j++) {
-                address token2 = all[j];
-                if (token1 == token2 || !registeredTokens[token2].isRegistered) continue;
-                TokenInfo memory info2 = registeredTokens[token2];
-                if (visualID(info2.name, info2.symbol) == nameSymbolHash && info2.timestamp < oldestTime) {
-                    oldest = token2;
-                    oldestTime = info2.timestamp;
-                }
-            }
-
-            for (uint256 j = 0; j < all.length; j++) {
-                address token = all[j];
-                if (token != oldest && registeredTokens[token].isRegistered) {
-                    TokenInfo memory info = registeredTokens[token];
-                    if (visualID(info.name, info.symbol) == nameSymbolHash) {
-                        delete registeredTokens[token];
-                        emit SelfHealTriggered(info.name, info.symbol, token, msg.sender);
-                    }
-                }
+        // ✅ Find oldest token for this (name+symbol)
+        for (uint256 j = 0; j < all.length; j++) {
+            address token2 = all[j];
+            if (token1 == token2 || !registeredTokens[token2].isRegistered) continue;
+            TokenInfo memory info2 = registeredTokens[token2];
+            if (visualID(info2.name, info2.symbol) == nameSymbolHash && info2.timestamp < oldestTime) {
+                oldest = token2;
+                oldestTime = info2.timestamp;
             }
         }
+
+        // ✅ Purge all other clones strictly
+        for (uint256 j = 0; j < all.length; j++) {
+            address token = all[j];
+            if (!registeredTokens[token].isRegistered) continue;
+            TokenInfo memory info = registeredTokens[token];
+            if (visualID(info.name, info.symbol) == nameSymbolHash && token != oldest) {
+                delete registeredTokens[token];
+                emit SelfHealTriggered(info.name, info.symbol, token, msg.sender);
+            }
+        }
+
+        // ✅ Hard reset nameSymbolToAddress to only the oldest
+        if (nameSymbolToAddress[nameSymbolHash] != oldest) {
+            nameSymbolToAddress[nameSymbolHash] = oldest;
+        }
     }
+}
 
     // ════════════════════════════════
     // 💼 Owner Utilities
@@ -572,6 +583,15 @@ function getTokenByNameSymbol(string memory name, string memory symbol) internal
         minTPNFee = newFee;
         emit MinFeeUpdated(newFee);
     }
+    function pauseRegistry() external onlyOwner {
+    paused = true;
+    emit RegistryPaused();
+}
+
+    function unpauseRegistry() external onlyOwner {
+    paused = false;
+    emit RegistryUnpaused();
+}
 
     function transferOwnership(address newOwner) public override onlyOwner {
     _transferOwnership(newOwner);

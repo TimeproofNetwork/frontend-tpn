@@ -7,7 +7,10 @@ import TokenRegistryAbi from "@/abi/TokenRegistry.json";
 import dotenv from "dotenv";
 dotenv.config();
 
-const TPN_REGISTRY = "0xeE556A91B2E71D4fb9280C988e9CcA80dDb61D14";
+const TPN_TOKEN = process.env.NEXT_PUBLIC_TPN_TOKEN as `0x${string}`;
+const BADGE_NFT = process.env.NEXT_PUBLIC_BADGE_NFT as `0x${string}`;
+const TOKEN_REGISTRY = process.env.NEXT_PUBLIC_TOKEN_REGISTRY as `0x${string}`;
+
 
 function sanitize(str: string): string {
   return str.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -49,7 +52,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const isSC = symbol.length <= 3;
 
   const provider = new ethers.providers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);
-  const registry = new ethers.Contract(TPN_REGISTRY, TokenRegistryAbi.abi, provider);
+  const registry = new ethers.Contract(TOKEN_REGISTRY, TokenRegistryAbi.abi, provider);
 
   const rawTokens = await registry.getTokenLogbook();
   const tokens = rawTokens.map((token: any, index: number) => ({ ...token, index }));

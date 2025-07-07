@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import { ethers } from "ethers";
 import TokenRegistryAbi from "../../abi/TokenRegistry.json";
 
-const TPN_TOKEN = "0x42fb85d1fF667Eb00bc8f52CC04baD7A7eAfD50e";
-const BADGE_NFT = "0x319C0FA14Ba35D62B7317f17f146fD051651fb7B";
-const TOKEN_REGISTRY = "0xeE556A91B2E71D4fb9280C988e9CcA80dDb61D14";
+const TPN_TOKEN = process.env.NEXT_PUBLIC_TPN_TOKEN as `0x${string}`;
+const BADGE_NFT = process.env.NEXT_PUBLIC_BADGE_NFT as `0x${string}`;
+const TOKEN_REGISTRY = process.env.NEXT_PUBLIC_TOKEN_REGISTRY as `0x${string}`;
 
 type TokenMetadata = {
   name: string;
@@ -31,9 +31,8 @@ export default function TokenList() {
   const fetchLastTokens = async () => {
     setLoading(true);
     try {
-      const provider = new ethers.providers.JsonRpcProvider(
-        "https://eth-sepolia.g.alchemy.com/v2/GqdudOelttJ2NcLiZ2TyF"
-      );
+      const provider = new ethers.providers.JsonRpcProvider(process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL!);
+
       const registry = new ethers.Contract(TOKEN_REGISTRY, TokenRegistryAbi.abi, provider);
 
       const allTokens: any[] = await registry.getTokenLogbook();

@@ -1,7 +1,7 @@
 const { ethers } = require("hardhat");
 const { sanitizeInput } = require("./sanitizeInputs");
 
-const TOKEN_REGISTRY = "0xeE556A91B2E71D4fb9280C988e9CcA80dDb61D14";
+const TOKEN_REGISTRY = "0x92aCF7E58E8C65d0Aad3ed4B252c064737Ad9B52";
 
 function editDistance(a, b) {
   const dp = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));

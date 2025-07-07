@@ -4,7 +4,7 @@ const axios = require("axios");
 const { ethers } = require("hardhat");
 
 // ✅ Final deployed TokenRegistry address
-const TOKEN_REGISTRY = "0xeE556A91B2E71D4fb9280C988e9CcA80dDb61D14";
+const TOKEN_REGISTRY = "0x92aCF7E58E8C65d0Aad3ed4B252c064737Ad9B52";
 
 // 🧼 Sanitize utility (same as contract)
 function sanitize(str) {

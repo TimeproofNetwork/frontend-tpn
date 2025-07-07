@@ -1,4 +1,4 @@
-// scripts/deploy.js
+// /scripts/deploy.js
 
 const { ethers } = require("hardhat");
 
@@ -11,14 +11,14 @@ async function main() {
   // ============================================================================
   const TPNToken = await ethers.getContractFactory("TPNToken");
   const tpnToken = await TPNToken.deploy(
-    "Timeproof Token",                          // name_
-    "TPN",                                      // symbol_
-    18,                                         // decimals_
+    "Timeproof Network",                      // name_
+    "TPN",                                     // symbol_
+    18,                                        // decimals_
     ethers.utils.parseEther("1000000000"),     // 1 Billion TPN
-    deployer.address                            // owner_ (DAO post-launch)
+    deployer.address                           // owner_ (DAO post-launch)
   );
   await tpnToken.deployed();
-  console.log("✅ TPN Token deployed to:", tpnToken.address);
+  console.log("✅ TPNToken deployed to:", tpnToken.address);
 
   // ============================================================================
   // 🏅 Deploy BadgeNFT
@@ -45,9 +45,9 @@ async function main() {
   console.log("🗃️ TokenRegistry deployed to:", tokenRegistry.address);
 
   // ============================================================================
-  // 🔒 Ownership Transfer (Optional for DAO handoff)
+  // 🔒 Ownership Transfer (Optional)
   // ============================================================================
-  // Uncomment when migrating control to TokenRegistry or DAO:
+  // Uncomment when ready for DAO control:
   // await tpnToken.transferOwnership(tokenRegistry.address);
   // await badgeNFT.transferOwnership(tokenRegistry.address);
   // console.log("🔒 Ownership of TPNToken and BadgeNFT transferred to TokenRegistry");
@@ -59,6 +59,7 @@ main().catch((error) => {
   console.error("❌ Deployment failed:", error);
   process.exit(1);
 });
+
 
 
 

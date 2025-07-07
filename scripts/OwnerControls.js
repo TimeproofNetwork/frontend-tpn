@@ -1,7 +1,7 @@
 const { ethers } = require("hardhat");
 
 async function main() {
-  const registryAddress = "YOUR_DEPLOYED_REGISTRY_ADDRESS_HERE";
+  const registryAddress = "0x92aCF7E58E8C65d0Aad3ed4B252c064737Ad9B52";
   const registry = await ethers.getContractAt("TokenRegistry", registryAddress);
 
   // 1. Update minimum fee

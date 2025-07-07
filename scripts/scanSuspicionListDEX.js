@@ -2,7 +2,7 @@
 const { ethers } = require("hardhat");
 require("dotenv").config();
 
-const TOKEN_REGISTRY = "0xeE556A91B2E71D4fb9280C988e9CcA80dDb61D14";
+const TOKEN_REGISTRY = "0x92aCF7E58E8C65d0Aad3ed4B252c064737Ad9B52";
 
 function sanitize(str) {
   return str.toLowerCase().replace(/[^a-z0-9]/g, "");
