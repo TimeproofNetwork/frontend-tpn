@@ -1,9 +1,10 @@
-// app/layout.tsx
+// /app/layout.tsx
 
 import './styles/globals.css';
 import { Providers } from './providers';
 import type { Metadata } from 'next';
 import ClientWrapper from './components/ClientWrapper';
+import { Analytics } from '@vercel/analytics/react';  // ✅ Added Analytics
 
 export const metadata: Metadata = {
   title: 'Timeproof Network',
@@ -17,12 +18,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Providers>
           <ClientWrapper>
             {children}
+            <Analytics />  {/* ✅ Added Analytics */}
           </ClientWrapper>
         </Providers>
       </body>
     </html>
   );
 }
+
 
 
  
