@@ -12,17 +12,13 @@ function sanitize(str: string): string {
   return str.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
-function unified(name: string, symbol: string): string {
-  return sanitize(name + symbol);
-}
-
 function editDistance(a: string, b: string): number {
   const dp = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
   for (let i = 0; i <= a.length; i++) dp[i][0] = i;
   for (let j = 0; j <= b.length; j++) dp[0][j] = j;
   for (let i = 1; i <= a.length; i++) {
     for (let j = 1; j <= b.length; j++) {
-      dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+      dp[i][j] = (a[i - 1] === b[j - 1]) ? dp[i - 1][j - 1] : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
     }
   }
   return dp[a.length][b.length];
@@ -40,8 +36,8 @@ function isLSIC(a: any, b: any): boolean {
   const s1 = sanitize(a.symbol);
   const s2 = sanitize(b.symbol);
   if (s1.length <= 3) return false;
-  const id1 = unified(a.name, a.symbol);
-  const id2 = unified(b.name, b.symbol);
+  const id1 = sanitize(a.name + a.symbol);
+  const id2 = sanitize(b.name + b.symbol);
   return editDistance(id1, id2) <= 2;
 }
 
@@ -95,20 +91,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   creatorTokens.forEach(token => {
     const priorTokens = tokens.filter(t => t.timestamp < token.timestamp);
 
-    if (priorTokens.length === 0) {
-      return;
-    }
-
-    const isCurrentTokenRoot = !priorTokens.some(pt => isSC(token, pt) || isLSIC(token, pt));
-
-    if (isCurrentTokenRoot) {
-      return;
-    }
-
     for (const prior of priorTokens) {
-      if (prior.creator !== token.creator) continue;
+      const isPriorRoot = !priorTokens.some(pt => pt.timestamp < prior.timestamp && (isSC(prior, pt) || isLSIC(prior, pt)));
 
-      const isPriorRoot = !tokens.some(pt => pt.timestamp < prior.timestamp && (isSC(prior, pt) || isLSIC(prior, pt)));
       if (!isPriorRoot) continue;
 
       if (token.symbol.length <= 3) {
@@ -142,6 +127,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   return res.status(200).json({ output: lines.join("\n") });
 }
+
 
 
 
