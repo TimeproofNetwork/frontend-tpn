@@ -1,5 +1,3 @@
-// /pages/api/scanCreatorTrustScore.ts
-
 import type { NextApiRequest, NextApiResponse } from "next";
 import { ethers } from "ethers";
 import TokenRegistryAbi from "@/abi/TokenRegistry.json";
@@ -7,9 +5,8 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const TPN_TOKEN = process.env.NEXT_PUBLIC_TPN_TOKEN as `0x${string}`;
-const BADGE_NFT = process.env.NEXT_PUBLIC_BADGE_NFT as `0x${string}`;
 const TOKEN_REGISTRY = process.env.NEXT_PUBLIC_TOKEN_REGISTRY as `0x${string}`;
+const RPC_URL = process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL;
 
 function sanitize(str: string): string {
   return str.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -42,7 +39,7 @@ function isSC(a: any, b: any): boolean {
 function isLSIC(a: any, b: any): boolean {
   const s1 = sanitize(a.symbol);
   const s2 = sanitize(b.symbol);
-  if (s1.length <= 3 || s2.length <= 3) return false;
+  if (s1.length <= 3) return false;
   const id1 = unified(a.name, a.symbol);
   const id2 = unified(b.name, b.symbol);
   return editDistance(id1, id2) <= 2;
@@ -53,14 +50,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ output: "❌ Only POST method is allowed." });
   }
 
-  const creator = req.body.creator?.trim();
-  const rpcUrl = process.env.SEPOLIA_RPC_URL;
+  const creator = req.body.creator?.trim().toLowerCase();
 
-  if (!creator || !rpcUrl) {
+  if (!creator || !RPC_URL) {
     return res.status(400).json({ output: `❌ Creator address or RPC URL missing from request or environment!` });
   }
 
-  const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
+  const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
   const registry = new ethers.Contract(TOKEN_REGISTRY, TokenRegistryAbi.abi, provider);
 
   const tokens: any[] = [];
@@ -71,7 +67,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         name: token.name,
         symbol: token.symbol,
         address: token.tokenAddress,
-        creator: token.registeredBy,
+        creator: token.registeredBy.toLowerCase(),
         timestamp: token.timestamp ? Number(token.timestamp.toString()) : 0,
         index,
       });
@@ -80,28 +76,61 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ output: `❌ Failed to fetch token logbook.\n\n${err.message || String(err)}` });
   }
 
-  const creatorTokens = tokens.filter(t => t.creator.toLowerCase() === creator.toLowerCase());
-
-  if (creatorTokens.length === 0) {
-    return res.status(200).json({ output: `❌ No tokens found for creator: ${creator}` });
-  }
+  const creatorTokens = tokens.filter(t => t.creator === creator);
 
   const lines: string[] = [];
   lines.push(`\n🔍 Suspicion Scan started by: ${creator}`);
   lines.push(`📚 Fetching registered tokens from logbook...`);
   lines.push(`✅ Fetched ${tokens.length} tokens from registry.`);
+  lines.push(`📦 Total tokens created: ${creatorTokens.length}`);
 
-  let suspicious = 0;
-  for (const token of creatorTokens) {
-    const isClone = tokens.some(other => other.index !== token.index && (isSC(token, other) || isLSIC(token, other)));
-    if (isClone) suspicious++;
+  if (creatorTokens.length === 0) {
+    lines.push(`\n❌ No tokens found for creator: ${creator}`);
+    return res.status(200).json({ output: lines.join("\n") });
   }
 
-  lines.push(`\n📦 Total tokens created: ${creatorTokens.length}`);
-  lines.push(`🧪 Suspicious tokens found: ${suspicious}`);
+  let suspiciousCount = 0;
+  let penalty = 0;
 
-  const trustScore = Math.max(0, 100 - suspicious * 10);
-  lines.push(`\n📊 Estimated Trust Score: ${trustScore}/100`);
+  creatorTokens.forEach(token => {
+    const priorTokens = tokens.filter(t => t.timestamp < token.timestamp);
+
+    if (priorTokens.length === 0) {
+      return;
+    }
+
+    const isCurrentTokenRoot = !priorTokens.some(pt => isSC(token, pt) || isLSIC(token, pt));
+
+    if (isCurrentTokenRoot) {
+      return;
+    }
+
+    for (const prior of priorTokens) {
+      if (prior.creator !== token.creator) continue;
+
+      const isPriorRoot = !tokens.some(pt => pt.timestamp < prior.timestamp && (isSC(prior, pt) || isLSIC(prior, pt)));
+      if (!isPriorRoot) continue;
+
+      if (token.symbol.length <= 3) {
+        if (isSC(token, prior)) {
+          penalty += 10;
+          suspiciousCount++;
+          break;
+        }
+      } else {
+        if (isLSIC(token, prior)) {
+          penalty += 25;
+          suspiciousCount++;
+          break;
+        }
+      }
+    }
+  });
+
+  const trustScore = Math.max(0, 100 - penalty);
+
+  lines.push(`\n🧪 Suspicious tokens found: ${suspiciousCount}`);
+  lines.push(`📊 Estimated Trust Score: ${trustScore}/100`);
 
   if (trustScore >= 90) {
     lines.push(`✅ Creator is highly trustworthy.`);
@@ -113,6 +142,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   return res.status(200).json({ output: lines.join("\n") });
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -1,3 +1,5 @@
+// /scripts/scanCreatorClusterStatistics.js
+
 const { ethers } = require("hardhat");
 const { sanitizeInput } = require("./sanitizeInputs");
 
@@ -9,42 +11,36 @@ function editDistance(a, b) {
   for (let j = 0; j <= b.length; j++) dp[0][j] = j;
   for (let i = 1; i <= a.length; i++) {
     for (let j = 1; j <= b.length; j++) {
-      dp[i][j] = a[i - 1] === b[j - 1]
-        ? dp[i - 1][j - 1]
-        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+      dp[i][j] = (a[i - 1] === b[j - 1]) ? dp[i - 1][j - 1] : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
     }
   }
   return dp[a.length][b.length];
 }
 
-function isSuspicious(candidate, root) {
-  const n1 = sanitizeInput(candidate.name);
-  const n2 = sanitizeInput(root.name);
-  const s1 = sanitizeInput(candidate.symbol);
-  const s2 = sanitizeInput(root.symbol);
-
-  const nameDist = editDistance(n1, n2);
-  const symbolDist = editDistance(s1, s2);
-
-  if (s1.length <= 3 && s2.length <= 3) {
-    return nameDist <= 3 && symbolDist <= 2;
-  }
-
-  if (s1.length > 3 && s2.length > 3) {
-    const id1 = sanitizeInput(n1 + s1);
-    const id2 = sanitizeInput(n2 + s2);
-    return editDistance(id1, id2) <= 2;
-  }
-
-  return false;
+function isSC(a, b) {
+  const n1 = sanitizeInput(a.name);
+  const n2 = sanitizeInput(b.name);
+  const s1 = sanitizeInput(a.symbol);
+  const s2 = sanitizeInput(b.symbol);
+  return a.symbol.length <= 3 && b.symbol.length <= 3 && editDistance(n1, n2) <= 3 && editDistance(s1, s2) <= 2;
 }
 
-async function scanCreatorClusterStatistics() {
-  const creatorEnv = process.env.CREATOR;
-  const [deployer] = await ethers.getSigners();
+function isLSIC(a, b) {
+  const s1 = sanitizeInput(a.symbol);
+  const s2 = sanitizeInput(b.symbol);
+  if (a.symbol.length <= 3) return false;
+  const id1 = sanitizeInput(a.name + a.symbol);
+  const id2 = sanitizeInput(b.name + b.symbol);
+  return editDistance(id1, id2) <= 2;
+}
+
+async function main() {
   const Registry = await ethers.getContractAt("TokenRegistry", TOKEN_REGISTRY);
 
+  const creatorEnv = process.env.CREATOR || "";
+  const [deployer] = await ethers.getSigners();
   const usedWallet = (creatorEnv || deployer.address).toLowerCase();
+
   console.log(`\n🔍 Scanning registered tokens using: ${usedWallet}`);
   console.log("📚 Fetching registered tokens from logbook...");
 
@@ -58,7 +54,7 @@ async function scanCreatorClusterStatistics() {
         address: token.tokenAddress,
         creator: token.registeredBy.toLowerCase(),
         timestamp: token.timestamp.toNumber(),
-        logbookIndex: i,
+        index: i,
       });
     } catch {
       break;
@@ -68,59 +64,78 @@ async function scanCreatorClusterStatistics() {
   console.log(`✅ Fetched ${tokens.length} tokens from registry.`);
 
   const clusters = [];
-  const clustered = new Set();
+  const assignedTokens = new Set();
+  const rootTokens = new Set();
 
   for (let i = 0; i < tokens.length; i++) {
-    if (clustered.has(i)) continue;
+    const token = tokens[i];
+    const priorTokens = tokens.filter(t => t.timestamp < token.timestamp);
+    const isRoot = !priorTokens.some(t => {
+      return token.symbol.length <= 3 ? isSC(token, t) : isLSIC(token, t);
+    });
+    if (isRoot) rootTokens.add(token.index);
+  }
 
-    const root = tokens[i];
-    const cluster = [root];
+  for (let i = 0; i < tokens.length; i++) {
+    const base = tokens[i];
 
-    for (let j = 0; j < tokens.length; j++) {
-      if (i === j) continue;
-      if (isSuspicious(tokens[j], root)) {
-        cluster.push(tokens[j]);
-        clustered.add(j);
+    if (!rootTokens.has(base.index)) continue;
+    if (assignedTokens.has(base.index)) continue;
+
+    const cluster = [base];
+
+    for (let j = i + 1; j < tokens.length; j++) {
+      const candidate = tokens[j];
+      if (candidate.timestamp <= base.timestamp) continue;
+      if (assignedTokens.has(candidate.index)) continue;
+
+      if (candidate.symbol.length <= 3) {
+        if (isSC(candidate, base)) cluster.push(candidate);
+      } else {
+        if (isLSIC(candidate, base)) cluster.push(candidate);
       }
     }
 
-    if (cluster.length > 1) {
-      cluster.forEach(t => clustered.add(t.logbookIndex));
-      clusters.push(cluster);
-    }
+    if (cluster.length < 2) continue;
+
+    const alreadyAssigned = cluster.some(t => assignedTokens.has(t.index));
+    if (alreadyAssigned) continue;
+
+    clusters.push(cluster);
+    cluster.forEach(t => assignedTokens.add(t.index));
   }
 
-  const scoreMap = {};
+  const creatorStats = {};
 
   tokens.forEach(token => {
     const addr = token.creator;
-    if (!scoreMap[addr]) {
-      scoreMap[addr] = { clusters: new Set(), total: 0, clusterSize: 0 };
+    if (!creatorStats[addr]) {
+      creatorStats[addr] = { total: 0, clusters: new Set(), contribution: 0 };
     }
-    scoreMap[addr].total += 1;
+    creatorStats[addr].total++;
   });
 
   clusters.forEach((cluster, idx) => {
-    const counted = new Set();
-    cluster.forEach(token => {
+    const baseCreator = cluster[0].creator;
+
+    cluster.slice(1).forEach(token => {
       const addr = token.creator;
-      scoreMap[addr].clusterSize += 1;
-      if (!counted.has(addr)) {
-        scoreMap[addr].clusters.add(idx);
-        counted.add(addr);
-      }
+      if (!creatorStats[addr]) return;
+      creatorStats[addr].clusters.add(idx);
+      creatorStats[addr].contribution++;
     });
   });
 
-  const scores = Object.entries(scoreMap)
+  const scores = Object.entries(creatorStats)
+    .filter(([_, data]) => data.clusters.size > 0 && data.contribution >= 1)
     .map(([creator, data]) => {
-      const totalClusters = data.clusters.size;
-      const totalClusterSize = data.clusterSize;
-      const crs = totalClusters > 0 ? (totalClusterSize * totalClusters) + (totalClusters / data.total) : 0;
+      const clusterCount = data.clusters.size;
+      const clusterContribution = data.contribution;
+      const crs = (clusterCount * clusterContribution) + (clusterCount / data.total);
       return {
         creator,
-        clusterCount: totalClusters,
-        clusterSize: totalClusterSize,
+        clusterCount,
+        clusterContribution,
         crs: crs.toFixed(2),
       };
     })
@@ -133,22 +148,73 @@ async function scanCreatorClusterStatistics() {
   const targetIndex = scores.findIndex(s => s.creator === usedWallet);
   const target = targetIndex !== -1 ? scores[targetIndex] : null;
 
-  if (top) {
-    console.log(`#1  🧑‍💻 ${top.creator} → Clusters: ${top.clusterCount} | Cluster Size: ${top.clusterSize}`);
+  if (top && (!target || top.creator !== usedWallet)) {
+    console.log(`#1  🧑‍💻 ${top.creator} → Clusters: ${top.clusterCount} | Cluster Contribution: ${top.clusterContribution}`);
   }
 
   if (target) {
     const rank = targetIndex + 1;
-    console.log(`#${rank}  🧑‍💻 ${target.creator} → Clusters: ${target.clusterCount} | Cluster Size: ${target.clusterSize}`);
+    console.log(`#${rank}  🧑‍💻 ${target.creator} → Clusters: ${target.clusterCount} | Cluster Contribution: ${target.clusterContribution}`);
   } else {
     console.log(`❌ No clusters found for ${usedWallet}`);
   }
 }
 
-scanCreatorClusterStatistics().catch(err => {
+main().catch((err) => {
   console.error("❌ Scan Failed:", err);
   process.exit(1);
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -5,9 +5,17 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const TPN_TOKEN = process.env.NEXT_PUBLIC_TPN_TOKEN as `0x${string}`;
-const BADGE_NFT = process.env.NEXT_PUBLIC_BADGE_NFT as `0x${string}`;
 const TOKEN_REGISTRY = process.env.NEXT_PUBLIC_TOKEN_REGISTRY as `0x${string}`;
+const RPC_URL = process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL;
+
+interface Token {
+  name: string;
+  symbol: string;
+  address: string;
+  creator: string;
+  timestamp: number;
+  index: number;
+}
 
 function sanitize(str: string): string {
   return str.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -25,26 +33,21 @@ function editDistance(a: string, b: string): number {
   return dp[a.length][b.length];
 }
 
-function isSuspicious(candidate: { name: string; symbol: string }, root: { name: string; symbol: string }): boolean {
-  const n1 = sanitize(candidate.name);
-  const n2 = sanitize(root.name);
-  const s1 = sanitize(candidate.symbol);
-  const s2 = sanitize(root.symbol);
+function isSC(a: Token, b: Token): boolean {
+  const n1 = sanitize(a.name);
+  const n2 = sanitize(b.name);
+  const s1 = sanitize(a.symbol);
+  const s2 = sanitize(b.symbol);
+  return s1.length <= 3 && s2.length <= 3 && editDistance(n1, n2) <= 3 && editDistance(s1, s2) <= 2;
+}
 
-  const nameDist = editDistance(n1, n2);
-  const symbolDist = editDistance(s1, s2);
-
-  if (s1.length <= 3 && s2.length <= 3) {
-    return nameDist <= 3 && symbolDist <= 2;
-  }
-
-  if (s1.length > 3 && s2.length > 3) {
-    const id1 = sanitize(n1 + s1);
-    const id2 = sanitize(n2 + s2);
-    return editDistance(id1, id2) <= 2;
-  }
-
-  return false;
+function isLSIC(a: Token, b: Token): boolean {
+  const s1 = sanitize(a.symbol);
+  const s2 = sanitize(b.symbol);
+  if (s1.length <= 3) return false;
+  const id1 = sanitize(a.name + a.symbol);
+  const id2 = sanitize(b.name + b.symbol);
+  return editDistance(id1, id2) <= 2;
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -53,15 +56,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const creatorInput = req.body.creator?.trim().toLowerCase() || "";
-  const rpcUrl = process.env.SEPOLIA_RPC_URL;
-  if (!rpcUrl) {
+
+  if (!RPC_URL) {
     return res.status(400).json({ output: `❌ RPC URL missing from environment!` });
   }
 
-  const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
+  const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
   const registry = new ethers.Contract(TOKEN_REGISTRY, TokenRegistryAbi.abi, provider);
 
-  const tokens: any[] = [];
+  const tokens: Token[] = [];
   try {
     const rawTokens = await registry.getTokenLogbook();
     rawTokens.forEach((token: any, index: number) => {
@@ -83,60 +86,75 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   lines.push("📚 Fetching registered tokens from logbook...");
   lines.push(`✅ Fetched ${tokens.length} tokens from registry.`);
 
-  const clusters: any[] = [];
-  const clustered = new Set<number>();
+  const clusters: Token[][] = [];
+  const assignedTokens = new Set<number>();
+  const rootTokens = new Set<number>();
 
   for (let i = 0; i < tokens.length; i++) {
-    if (clustered.has(i)) continue;
-
-    const root = tokens[i];
-    const cluster = [root];
-
-    for (let j = 0; j < tokens.length; j++) {
-      if (i === j) continue;
-      if (isSuspicious(tokens[j], root)) {
-        cluster.push(tokens[j]);
-        clustered.add(j);
-      }
-    }
-
-    if (cluster.length > 1) {
-      cluster.forEach(t => clustered.add(t.index));
-      clusters.push(cluster);
-    }
+    const token = tokens[i];
+    const priorTokens = tokens.filter(t => t.timestamp < token.timestamp);
+    const isRoot = !priorTokens.some(t => t.symbol.length <= 3 ? isSC(token, t) : isLSIC(token, t));
+    if (isRoot) rootTokens.add(token.index);
   }
 
-  const creatorMap: Record<string, { clusters: Set<number>, total: number, clusterSize: number }> = {};
+  for (let i = 0; i < tokens.length; i++) {
+    const base = tokens[i];
 
-  tokens.forEach(token => {
-    const addr = token.creator;
-    if (!creatorMap[addr]) {
-      creatorMap[addr] = { clusters: new Set(), total: 0, clusterSize: 0 };
+    if (!rootTokens.has(base.index)) continue;
+    if (assignedTokens.has(base.index)) continue;
+
+    const cluster: Token[] = [base];
+
+    for (let j = i + 1; j < tokens.length; j++) {
+      const candidate = tokens[j];
+      if (candidate.timestamp <= base.timestamp) continue;
+      if (assignedTokens.has(candidate.index)) continue;
+
+      if (candidate.symbol.length <= 3) {
+        if (isSC(candidate, base)) cluster.push(candidate);
+      } else {
+        if (isLSIC(candidate, base)) cluster.push(candidate);
+      }
     }
-    creatorMap[addr].total += 1;
+
+    if (cluster.length < 2) continue;
+
+    const alreadyAssigned = cluster.some(t => assignedTokens.has(t.index));
+    if (alreadyAssigned) continue;
+
+    clusters.push(cluster);
+    cluster.forEach(t => assignedTokens.add(t.index));
+  }
+
+  const creatorStats: Record<string, { total: number, clusters: Set<number>, contribution: number }> = {};
+
+  tokens.forEach((token: Token) => {
+    const addr = token.creator;
+    if (!creatorStats[addr]) {
+      creatorStats[addr] = { total: 0, clusters: new Set(), contribution: 0 };
+    }
+    creatorStats[addr].total++;
   });
 
-  clusters.forEach((cluster, idx) => {
-    const counted = new Set<string>();
-    cluster.forEach((token: any) => {
+  clusters.forEach((cluster: Token[], idx: number) => {
+    cluster.slice(1).forEach((token: Token) => {
       const addr = token.creator;
-      creatorMap[addr].clusterSize += 1;
-      if (!counted.has(addr)) {
-        creatorMap[addr].clusters.add(idx);
-        counted.add(addr);
-      }
+      if (!creatorStats[addr]) return;
+      creatorStats[addr].clusters.add(idx);
+      creatorStats[addr].contribution++;
     });
   });
 
-  const scores = Object.entries(creatorMap)
+  const scores = Object.entries(creatorStats)
+    .filter(([_, data]) => data.clusters.size > 0 && data.contribution >= 1)
     .map(([creator, data]) => {
-      const totalClusters = data.clusters.size;
-      const totalClusterSize = data.clusterSize;
-      const crs = totalClusters > 0 ? (totalClusterSize * totalClusters) + (totalClusters / data.total) : 0;
+      const clusterCount = data.clusters.size;
+      const clusterContribution = data.contribution;
+      const crs = (clusterCount * clusterContribution) + (clusterCount / data.total);
       return {
         creator,
-        clusterCount: totalClusters,
-        clusterSize: totalClusterSize,
+        clusterCount,
+        clusterContribution,
         crs: crs.toFixed(2),
       };
     })
@@ -149,19 +167,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const targetIndex = scores.findIndex(s => s.creator === creatorInput);
   const target = targetIndex !== -1 ? scores[targetIndex] : null;
 
-  if (top) {
-    lines.push(`#1  🧑‍💻 ${top.creator} → Clusters: ${top.clusterCount} | Cluster Size: ${top.clusterSize}`);
+  if (top && (!target || top.creator !== creatorInput)) {
+    lines.push(`#1  🧑‍💻 ${top.creator} → Clusters: ${top.clusterCount} | Cluster Contribution: ${top.clusterContribution}`);
   }
 
   if (target) {
     const rank = targetIndex + 1;
-    lines.push(`#${rank}  🧑‍💻 ${target.creator} → Clusters: ${target.clusterCount} | Cluster Size: ${target.clusterSize}`);
+    lines.push(`#${rank}  🧑‍💻 ${target.creator} → Clusters: ${target.clusterCount} | Cluster Contribution: ${target.clusterContribution}`);
   } else {
     lines.push(`❌ No clusters found for ${creatorInput}`);
   }
 
   return res.status(200).json({ output: lines.join("\n") });
 }
+
+
+
 
 
 

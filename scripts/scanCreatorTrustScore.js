@@ -1,3 +1,5 @@
+// /scripts/scanCreatorTrustScore.js
+
 const { ethers } = require("hardhat");
 const { sanitizeInput } = require("./sanitizeInputs");
 
@@ -24,7 +26,6 @@ function isSC(a, b) {
   const s2 = sanitizeInput(b.symbol);
   return (
     s1.length <= 3 &&
-    s2.length <= 3 &&
     editDistance(n1, n2) <= 3 &&
     editDistance(s1, s2) <= 2
   );
@@ -33,19 +34,13 @@ function isSC(a, b) {
 function isLSIC(a, b) {
   const s1 = sanitizeInput(a.symbol);
   const s2 = sanitizeInput(b.symbol);
-  if (s1.length <= 3 || s2.length <= 3) return false;
+  if (s1.length <= 3) return false;
   const id1 = sanitizeInput(a.name + a.symbol);
   const id2 = sanitizeInput(b.name + b.symbol);
   return editDistance(id1, id2) <= 2;
 }
 
 async function main() {
-  const creator = process.env.CREATOR;
-  if (!creator) {
-    console.error("❌ CREATOR address must be set in environment.");
-    process.exit(1);
-  }
-
   const Registry = await ethers.getContractAt("TokenRegistry", TOKEN_REGISTRY);
 
   const tokens = [];
@@ -56,7 +51,7 @@ async function main() {
         name: token.name,
         symbol: token.symbol,
         address: token.tokenAddress,
-        creator: token.registeredBy,
+        creator: token.registeredBy.toLowerCase(),
         timestamp: token.timestamp.toNumber(),
         index: i,
       });
@@ -65,44 +60,90 @@ async function main() {
     }
   }
 
-  const creatorTokens = tokens.filter(t => t.creator.toLowerCase() === creator.toLowerCase());
+  const creators = {};
+  tokens.forEach(token => {
+    if (!creators[token.creator]) {
+      creators[token.creator] = [];
+    }
+    creators[token.creator].push(token);
+  });
 
-  if (creatorTokens.length === 0) {
-    console.log(`❌ No tokens found for creator: ${creator}`);
-    return;
-  }
+  const targetCreator = (process.env.CREATOR || "").toLowerCase();
 
-  console.log(`\n🔍 Suspicion Scan started by: ${creator}`);
-  console.log(`📚 Fetching registered tokens from logbook...`);
-  console.log(`✅ Fetched ${tokens.length} tokens from registry.`);
+  Object.entries(creators).forEach(([creator, creatorTokens]) => {
+    if (targetCreator && creator !== targetCreator) return;
 
-  let suspicious = 0;
-  for (const token of creatorTokens) {
-    const isClone = tokens.some(other =>
-      other.index !== token.index && (isSC(token, other) || isLSIC(token, other))
-    );
-    if (isClone) suspicious++;
-  }
+    let penalty = 0;
+    let suspiciousCount = 0;
 
-  console.log(`\n📦 Total tokens created: ${creatorTokens.length}`);
-  console.log(`🧪 Suspicious tokens found: ${suspicious}`);
+    creatorTokens.forEach(token => {
+      const priorTokens = tokens.filter(t => t.timestamp < token.timestamp);
 
-  const trustScore = Math.max(0, 100 - suspicious * 10);
-  console.log(`\n📊 Estimated Trust Score: ${trustScore}/100`);
+      let matched = false;
 
-  if (trustScore >= 90) {
-    console.log("✅ Creator is highly trustworthy.");
-  } else if (trustScore >= 60) {
-    console.log("⚠️ Moderate risk. Review token lineage.");
-  } else {
-    console.log("🚨 High risk. Creator may be deploying clones.");
-  }
+      for (const prior of priorTokens) {
+        const isPriorRoot = !priorTokens.some(pt => pt.timestamp < prior.timestamp && (isSC(prior, pt) || isLSIC(prior, pt)));
+
+        if (!isPriorRoot) continue;
+
+        if (token.symbol.length <= 3) {
+          if (isSC(token, prior)) {
+            penalty += 10;
+            suspiciousCount++;
+            matched = true;
+            break;
+          }
+        } else {
+          if (isLSIC(token, prior)) {
+            penalty += 25;
+            suspiciousCount++;
+            matched = true;
+            break;
+          }
+        }
+      }
+    });
+
+    const trustScore = Math.max(0, 100 - penalty);
+
+    console.log(`\n🔍 Creator: ${creator}`);
+    console.log(`📦 Total tokens created: ${creatorTokens.length}`);
+    console.log(`🧪 Suspicious tokens found (self and external clones): ${suspiciousCount}`);
+    console.log(`📊 Estimated Trust Score: ${trustScore}/100`);
+
+    if (trustScore >= 90) {
+      console.log("✅ Creator is highly trustworthy.");
+    } else if (trustScore >= 60) {
+      console.log("⚠️ Moderate risk. Review token lineage.");
+    } else {
+      console.log("🚨 High risk. Creator may be deploying clones.");
+    }
+  });
 }
 
 main().catch((err) => {
   console.error("❌ Scan Failed:", err);
   process.exit(1);
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

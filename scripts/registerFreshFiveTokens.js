@@ -9,12 +9,11 @@ const TOKEN_REGISTRY = "0x92aCF7E58E8C65d0Aad3ed4B252c064737Ad9B52";
 
 // 🛡️ Timeproof Attack Test Tokens (Triggering SC Only)
 const TOKENS = [
-  { name: "TimeproofNetv0rk", symbol: "TPN" },        // ✅ Root token
-  { name: "TimeproofNetvork", symbol: "TPN" },       // ✅ SC → vowel swap 'v'
-  { name: "T1meproofNetv0rk", symbol: "TPN" },       // ✅ LSIC → 'i' to '1'
-  { name: "TimeproofNetv0rks", symbol: "TPN" },      // ✅ LSIC → trailing 's'
-  { name: "TimeproofNetv0rk_", symbol: "TPN" },      // ✅ LSIC → trailing underscore
-  { name: "TimeproofNetvv0rk", symbol: "TPN" }       // ✅ SC → homoglyph 'w' → 'vv'
+  { name: "ТіmерroofNetwork", symbol: "tpn" },     // ✅ Unicode Cyrillic letters that **look** like Latin ('T', 'i', 'e')
+  { name: "Timepr00fNetwork", symbol: "tpn" },     // ✅ Zero-zero instead of 'oo'
+  { name: "TimeproofNetvvork", symbol: "tpn" },    // ✅ 'w' as 'vv'
+  { name: "TimeproofNetw0rk", symbol: "tpn" },     // ✅ 'o' to zero
+  { name: "TimeproofNеtwork", symbol: "tpn" }      // ✅ Just one character (e.g. 'e') replaced with Cyrillic
 ];
 
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));

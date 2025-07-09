@@ -9,7 +9,7 @@ const TOKEN_REGISTRY = "0x92aCF7E58E8C65d0Aad3ed4B252c064737Ad9B52";
 
 async function main() {
   const registry = await ethers.getContractAt("TokenRegistry", TOKEN_REGISTRY);
-  console.log("🔎 Checking last 20 tokens from registry logbook...\n");
+  console.log("🔎 Checking last 35 tokens from registry logbook...\n");
 
   const allTokens = [];
   let index = 0;
@@ -25,7 +25,7 @@ async function main() {
   }
 
   const total = allTokens.length;
-  const start = Math.max(0, total - 20);
+  const start = Math.max(0, total - 35);
 
   for (let i = start; i < total; i++) {
     try {
@@ -49,6 +49,7 @@ main().catch((error) => {
   console.error("❌ Registry check failed:", error);
   process.exit(1);
 });
+
 
 
 

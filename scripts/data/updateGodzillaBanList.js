@@ -42,10 +42,28 @@ async function main() {
     const batchNames = sanitizedNames.slice(i, i + BATCH_SIZE);
     const batchSymbols = sanitizedSymbols.slice(i, i + BATCH_SIZE);
 
-    console.log(`🚫 Sending batch ban transaction: ${i} to ${i + batchNames.length - 1}`);
-    const tx = await Registry.batchBanTokens(batchNames, batchSymbols);
+    const filteredNames = [];
+    const filteredSymbols = [];
+
+    for (let j = 0; j < batchNames.length; j++) {
+      const alreadyBanned = await Registry.isGloballyBanned(batchNames[j], batchSymbols[j]);
+      if (!alreadyBanned) {
+        filteredNames.push(batchNames[j]);
+        filteredSymbols.push(batchSymbols[j]);
+      }
+    }
+
+    if (filteredNames.length === 0) {
+      console.log(`⏩ Batch ${i / BATCH_SIZE + 1} skipped (all already banned).`);
+      continue;
+    }
+
+    console.log(`🚫 Sending batch ban transaction: ${i} to ${i + filteredNames.length - 1}`);
+    const tx = await Registry.batchBanTokens(filteredNames, filteredSymbols);
     await tx.wait();
     console.log(`✅ Batch ${i / BATCH_SIZE + 1} complete. TX: ${tx.hash}`);
+
+    await new Promise(resolve => setTimeout(resolve, 3000)); // ⏳ Optional pause between batches
   }
 
   console.log("✅ Godzilla ban list updated with top 500 tokens.");
@@ -55,6 +73,7 @@ main().catch((err) => {
   console.error("💥 Script failed:", err);
   process.exit(1);
 });
+
 
 
 
