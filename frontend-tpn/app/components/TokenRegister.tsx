@@ -1,4 +1,4 @@
-// ✅ Full Updated TokenRegister.tsx with CheckTPNBalance and Trust Branding Locked
+// /components/TokenRegister.tsx
 
 "use client";
 
@@ -69,10 +69,6 @@ export default function TokenRegister() {
     }
   }, [isConnected]);
 
-  const handleConnect = () => {
-    connect({ connector: new InjectedConnector() });
-  };
-
   const sanitize = (text: string) =>
     text.trim().toLowerCase().replace(/[^a-z0-9]/gi, "");
 
@@ -83,6 +79,11 @@ export default function TokenRegister() {
     } catch {
       return false;
     }
+  };
+
+  const isProofLinkMatching = (url: string, cleanName: string, cleanSymbol: string) => {
+    const lowerUrl = url.toLowerCase();
+    return lowerUrl.includes(cleanName) || lowerUrl.includes(cleanSymbol);
   };
 
   const handleRegister = async () => {
@@ -97,28 +98,40 @@ export default function TokenRegister() {
       if (!totalSupply || isNaN(Number(totalSupply)) || Number(totalSupply) <= 0) {
         return alert("Please enter a valid total token supply.");
       }
-      if (trustLevel === "2") {
-        if (!proofExchange.trim()) {
-          return alert("Level 2 requires Exchange Verification Link.");
-        }
-        if (!isValidDomain(proofExchange, validExchangeDomains)) {
-          return alert("❌ Invalid Exchange Verification Link. Must be from a recognized exchange domain.");
-        }
-      }
-      if (trustLevel === "3") {
-        if (!proofExchange.trim() || !proofAudit.trim()) {
-          return alert("Level 3 requires both Exchange and Audit Verification Links.");
-        }
-        if (!isValidDomain(proofExchange, validExchangeDomains)) {
-          return alert("❌ Invalid Exchange Verification Link. Must be from a recognized exchange domain.");
-        }
-        if (!isValidDomain(proofAudit, validAuditDomains)) {
-          return alert("❌ Invalid Audit Verification Link. Must be from a trusted audit provider.");
-        }
-      }
 
       const cleanName = sanitize(name);
-      const cleanSymbol = sanitize(symbol);
+const cleanSymbol = sanitize(symbol);
+
+if (trustLevel === "2") {
+  if (!proofExchange.trim()) {
+    return alert("Level 2 requires Exchange Verification Link.");
+  }
+  if (!isValidDomain(proofExchange, validExchangeDomains)) {
+    return alert("❌ Invalid Exchange Verification Link. Must be from a recognized exchange domain.");
+  }
+  if (!isProofLinkMatching(proofExchange, cleanName, cleanSymbol)) {
+    return alert("❌ Exchange link must mention token name or symbol.");
+  }
+}
+
+if (trustLevel === "3") {
+  if (!proofExchange.trim() || !proofAudit.trim()) {
+    return alert("Level 3 requires both Exchange and Audit Verification Links.");
+  }
+  if (!isValidDomain(proofExchange, validExchangeDomains)) {
+    return alert("❌ Invalid Exchange Verification Link. Must be from a recognized exchange domain.");
+  }
+  if (!isValidDomain(proofAudit, validAuditDomains)) {
+    return alert("❌ Invalid Audit Verification Link. Must be from a trusted audit provider.");
+  }
+  if (!isProofLinkMatching(proofExchange, cleanName, cleanSymbol)) {
+    return alert("❌ Exchange link must mention token name or symbol.");
+  }
+  if (!isProofLinkMatching(proofAudit, cleanName, cleanSymbol)) {
+    alert("⚠️ Audit link does not appear to mention your token name or symbol. Please double-check this before proceeding. DAO may reject invalid proofs.");
+    // Proceed without blocking — soft warning
+  }
+}
 
       const confirm = window.confirm(
         `🧼 Sanitized Format:\n\nName: ${cleanName}\nSymbol: ${cleanSymbol}\n\nProceed with registration?`
@@ -181,13 +194,13 @@ export default function TokenRegister() {
         })
         .find((parsed: any) => parsed?.name === "BadgeMinted");
 
-
       if (event) {
         const badgeId = event.args?.badgeId?.toString() || "unknown";
         const level = event.args?.trustLevel?.toString() || trustLevel;
         setBadgeInfo({ id: badgeId, level });
         setStatus((prev) => prev + `\n🏷️ Badge Token ID: ${badgeId} | Level: ${level}`);
       }
+
     } catch (err: any) {
       const reason =
         err?.error?.message ||
@@ -228,26 +241,6 @@ export default function TokenRegister() {
 
       <CheckTPNBalance />
 
-      <div className="bg-[#1A1A1A] border border-[#333333] rounded-2xl p-4 text-white shadow-lg mb-3">
-        <h3 className="text-lg font-semibold mb-2">⚠️ Important Notice</h3>
-        <p className="text-[#CCCCCC] text-sm leading-relaxed">
-          Before registering your token, please ensure your wallet holds at least <strong className="text-white">100 TPN</strong> to pay the registration fee.<br /><br />
-          Even if MetaMask does not display your TPN visually, our system reads your balance directly from the blockchain to verify eligibility.<br /><br />
-          👉 Use the <strong>“Check TPN Balance”</strong> button above to confirm.
-        </p>
-        <p className="mt-3 text-xs text-[#888888]">
-          🔒 <strong>TPN keeps your transaction private and secure.</strong>
-          <img src="/emblem.png" alt="TPN Emblem" className="inline w-4 h-4 ml-1 mr-1" />
-          <span className="font-medium text-white">Timeproof Network</span> — The Trust Layer for Web3 Assets.
-        </p>
-      </div>
-
-      <div className="mt-3 text-xs text-[#CCCCCC] text-center">
-        🔗 <a href="https://sepolia.etherscan.io/token/0x42fb85d1fF667Eb00bc8f52CC04baD7A7eAfD50e" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-400">
-          Alternatively, check your TPN balance directly on Sepolia Etherscan
-        </a>
-      </div>
-
       <button onClick={handleRegister} className="w-full bg-purple-700 hover:bg-purple-600 transition p-3 rounded font-semibold shadow-md hover:shadow-purple-700 active:scale-95 mt-4">
         🚀 Register Token (100 TPN)
       </button>
@@ -278,6 +271,8 @@ export default function TokenRegister() {
     </div>
   );
 }
+
+
 
 
 
