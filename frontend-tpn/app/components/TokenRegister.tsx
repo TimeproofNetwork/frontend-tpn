@@ -14,6 +14,7 @@ import { ethers } from "ethers";
 import TPNTokenAbi from "../../abi/TPNToken.json";
 import TokenRegistryAbi from "../../abi/TokenRegistry.json";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { AlertTriangle } from 'lucide-react';
 import CheckTPNBalance from "@/components/CheckTPNBalance";
 
 const TPN_TOKEN = process.env.NEXT_PUBLIC_TPN_TOKEN as `0x${string}`;
@@ -50,6 +51,7 @@ export default function TokenRegister() {
   const [proofAudit, setProofAudit] = useState("");
   const [status, setStatus] = useState("");
   const [badgeInfo, setBadgeInfo] = useState<{ id: string; level: string } | null>(null);
+  const [showHelp, setShowHelp] = useState(false);
 
   const { data: signer } = useSigner();
   const { connect } = useConnect();
@@ -100,38 +102,37 @@ export default function TokenRegister() {
       }
 
       const cleanName = sanitize(name);
-const cleanSymbol = sanitize(symbol);
+      const cleanSymbol = sanitize(symbol);
 
-if (trustLevel === "2") {
-  if (!proofExchange.trim()) {
-    return alert("Level 2 requires Exchange Verification Link.");
-  }
-  if (!isValidDomain(proofExchange, validExchangeDomains)) {
-    return alert("❌ Invalid Exchange Verification Link. Must be from a recognized exchange domain.");
-  }
-  if (!isProofLinkMatching(proofExchange, cleanName, cleanSymbol)) {
-    return alert("❌ Exchange link must mention token name or symbol.");
-  }
-}
+      if (trustLevel === "2") {
+        if (!proofExchange.trim()) {
+          return alert("Level 2 requires Exchange Verification Link.");
+        }
+        if (!isValidDomain(proofExchange, validExchangeDomains)) {
+          return alert("❌ Invalid Exchange Verification Link. Must be from a recognized exchange domain.");
+        }
+        if (!isProofLinkMatching(proofExchange, cleanName, cleanSymbol)) {
+          return alert("❌ Exchange link must mention token name or symbol.");
+        }
+      }
 
-if (trustLevel === "3") {
-  if (!proofExchange.trim() || !proofAudit.trim()) {
-    return alert("Level 3 requires both Exchange and Audit Verification Links.");
-  }
-  if (!isValidDomain(proofExchange, validExchangeDomains)) {
-    return alert("❌ Invalid Exchange Verification Link. Must be from a recognized exchange domain.");
-  }
-  if (!isValidDomain(proofAudit, validAuditDomains)) {
-    return alert("❌ Invalid Audit Verification Link. Must be from a trusted audit provider.");
-  }
-  if (!isProofLinkMatching(proofExchange, cleanName, cleanSymbol)) {
-    return alert("❌ Exchange link must mention token name or symbol.");
-  }
-  if (!isProofLinkMatching(proofAudit, cleanName, cleanSymbol)) {
-    alert("⚠️ Audit link does not appear to mention your token name or symbol. Please double-check this before proceeding. DAO may reject invalid proofs.");
-    // Proceed without blocking — soft warning
-  }
-}
+      if (trustLevel === "3") {
+        if (!proofExchange.trim() || !proofAudit.trim()) {
+          return alert("Level 3 requires both Exchange and Audit Verification Links.");
+        }
+        if (!isValidDomain(proofExchange, validExchangeDomains)) {
+          return alert("❌ Invalid Exchange Verification Link. Must be from a recognized exchange domain.");
+        }
+        if (!isValidDomain(proofAudit, validAuditDomains)) {
+          return alert("❌ Invalid Audit Verification Link. Must be from a trusted audit provider.");
+        }
+        if (!isProofLinkMatching(proofExchange, cleanName, cleanSymbol)) {
+          return alert("❌ Exchange link must mention token name or symbol.");
+        }
+        if (!isProofLinkMatching(proofAudit, cleanName, cleanSymbol)) {
+          alert("⚠️ Audit link does not appear to mention your token name or symbol. Please double-check this before proceeding. DAO may reject invalid proofs.");
+        }
+      }
 
       const confirm = window.confirm(
         `🧼 Sanitized Format:\n\nName: ${cleanName}\nSymbol: ${cleanSymbol}\n\nProceed with registration?`
@@ -241,6 +242,51 @@ if (trustLevel === "3") {
 
       <CheckTPNBalance />
 
+      <div className="mt-4 p-4 bg-gray-900 border border-gray-700 rounded-md text-sm text-gray-300 leading-relaxed">
+     <p className="mb-2">
+       <AlertTriangle className="inline-block w-5 h-5 text-yellow-400 mr-2" />
+       <span className="font-semibold">Caution:</span> You need a minimum of <span className="font-semibold">100 TPN</span> in your wallet to register a token.
+     </p>
+        <p className="mb-2">
+          If this is your first time—or anytime—you can request free 100 TPN using your wallet address here:<br />
+          🔗 <a
+            href="https://forms.gle/z1ZyEiyvikhKPdWi7"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-400 hover:underline"
+          >
+            Request Free TPN
+          </a>
+        </p>
+        <p className="mb-2">
+          Even if your MetaMask doesn’t show your TPN balance, our system reads your balance directly from on-chain data. 👉 Click the <span className="font-semibold">Check Balance</span> button above to see your wallet balance.
+        </p>
+        <p>
+          Alternatively, you can verify your TPN balance manually on:<br />
+          🔗 <a
+            href="https://sepolia.etherscan.io/address/YOUR_WALLET_ADDRESS"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-400 hover:underline"
+          >
+            Sepolia Etherscan
+          </a>
+        </p>
+        <div className="mt-3 text-sm text-gray-400">
+          <button onClick={() => setShowHelp(!showHelp)} className="underline text-blue-400 hover:text-blue-300">
+            {showHelp ? "Hide MetaMask Balance Help ▲" : "📝 How to View TPN in MetaMask ▼"}
+          </button>
+          {showHelp && (
+            <div className="mt-2 bg-gray-900 p-3 rounded border border-gray-700 text-gray-300 leading-relaxed shadow">
+              <p className="mb-2">1️⃣ Select <strong>Network</strong> → enable <strong>Show test networks</strong> → choose <strong>Sepolia</strong>.</p>
+              <p className="mb-2">2️⃣ Click on <strong>Tokens</strong> → then the <strong>three dots</strong> → <strong>Import Tokens</strong>.</p>
+              <p className="mb-2">3️⃣ Paste this TPN Token Address:<br /><span className="break-all text-yellow-300">0xA9ddbBFa1D21330D646ae32AA2a64A46F7c05572</span></p>
+              <p>4️⃣ Done! Your TPN balance will now appear in MetaMask.</p>
+            </div>
+          )}
+        </div>
+      </div>
+
       <button onClick={handleRegister} className="w-full bg-purple-700 hover:bg-purple-600 transition p-3 rounded font-semibold shadow-md hover:shadow-purple-700 active:scale-95 mt-4">
         🚀 Register Token (100 TPN)
       </button>
@@ -271,6 +317,7 @@ if (trustLevel === "3") {
     </div>
   );
 }
+
 
 
 
