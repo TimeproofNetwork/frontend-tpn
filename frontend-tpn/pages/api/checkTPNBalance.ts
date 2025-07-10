@@ -1,3 +1,5 @@
+// ✅ /pages/api/checkTPNBalance.ts
+
 import type { NextApiRequest, NextApiResponse } from "next";
 import { ethers } from "ethers";
 import dotenv from "dotenv";
@@ -36,6 +38,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   }
 }
+
 
 
 
