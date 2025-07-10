@@ -50,7 +50,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ output: "❌ Token name and symbol are required!" });
   }
 
-  const rpc = process.env.SEPOLIA_RPC_URL;
+  const rpc = process.env.SEPOLIA_RPC_URL;  // ✅ Fixed: Correct backend environment key
   if (!rpc) {
     return res.status(500).json({ output: "❌ RPC URL missing from environment!" });
   }
@@ -165,6 +165,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   return res.status(200).json({ output: lines.join("\n") });
 }
+
 
 
 

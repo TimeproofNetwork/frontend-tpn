@@ -5,6 +5,7 @@ import { ethers } from "ethers";
 import levenshtein from "fast-levenshtein";
 import TokenRegistryAbi from "@/abi/TokenRegistry.json";
 import dotenv from "dotenv";
+
 dotenv.config();
 
 const TPN_TOKEN = process.env.NEXT_PUBLIC_TPN_TOKEN as `0x${string}`;
@@ -51,7 +52,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const unifiedInput = unified(name, symbol);
   const isSC = symbol.length <= 3;
 
-  const provider = new ethers.providers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);
+  const provider = new ethers.providers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);  // ✅ Fixed: Correct backend RPC key
   const registry = new ethers.Contract(TOKEN_REGISTRY, TokenRegistryAbi.abi, provider);
 
   const rawTokens = await registry.getTokenLogbook();
@@ -177,6 +178,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   return res.status(200).json({ output: lines.join("\n") });
 }
+
 
 
 

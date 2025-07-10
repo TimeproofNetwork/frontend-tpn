@@ -7,6 +7,7 @@ import TokenRegistryAbi from "../../abi/TokenRegistry.json";
 const TPN_TOKEN = process.env.NEXT_PUBLIC_TPN_TOKEN as `0x${string}`;
 const BADGE_NFT = process.env.NEXT_PUBLIC_BADGE_NFT as `0x${string}`;
 const TOKEN_REGISTRY = process.env.NEXT_PUBLIC_TOKEN_REGISTRY as `0x${string}`;
+const RPC_URL = process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL!;  // ✅ Added centralized RPC
 
 type TokenMetadata = {
   name: string;
@@ -31,7 +32,7 @@ export default function TokenList() {
   const fetchLastTokens = async () => {
     setLoading(true);
     try {
-      const provider = new ethers.providers.JsonRpcProvider(process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL!);
+      const provider = new ethers.providers.JsonRpcProvider(RPC_URL);  // ✅ Using correct RPC
 
       const registry = new ethers.Contract(TOKEN_REGISTRY, TokenRegistryAbi.abi, provider);
 
@@ -61,9 +62,7 @@ export default function TokenList() {
     if (!search) return;
 
     try {
-      const provider = new ethers.providers.JsonRpcProvider(
-        "https://eth-sepolia.g.alchemy.com/v2/GqdudOelttJ2NcLiZ2TyF"
-      );
+      const provider = new ethers.providers.JsonRpcProvider(RPC_URL);  // ✅ Fixed hardcoded RPC
       const registry = new ethers.Contract(TOKEN_REGISTRY, TokenRegistryAbi.abi, provider);
       const [name, symbol, tokenAddr, creator, timestamp, trust] =
         await registry.getTokenInfo(search);
@@ -141,6 +140,7 @@ function TokenCard({ token }: { token: TokenMetadata }) {
     </div>
   );
 }
+
 
 
 

@@ -1,3 +1,5 @@
+// /pages/api/scanCreatorTrustScore.ts
+
 import type { NextApiRequest, NextApiResponse } from "next";
 import { ethers } from "ethers";
 import TokenRegistryAbi from "@/abi/TokenRegistry.json";
@@ -6,7 +8,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const TOKEN_REGISTRY = process.env.NEXT_PUBLIC_TOKEN_REGISTRY as `0x${string}`;
-const RPC_URL = process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL;
+const RPC_URL = process.env.SEPOLIA_RPC_URL;  // ✅ Fixed: Correct backend environment variable
 
 function sanitize(str: string): string {
   return str.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -127,6 +129,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   return res.status(200).json({ output: lines.join("\n") });
 }
+
 
 
 
