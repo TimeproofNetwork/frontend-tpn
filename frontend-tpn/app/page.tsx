@@ -40,7 +40,8 @@ export default function Home() {
           <div className="flex justify-center mt-6">
             <Link href="/intelligence" target="_blank">
               <button className="flex items-center gap-2 px-6 py-3 rounded-full bg-black border border-gray-700 text-white font-semibold shadow-md hover:shadow-lg hover:bg-gray-900 transition">
-                <Image src="/emblem.png" alt="TPN Emblem" width={20} height={20} />
+                <Image src="/emblem.png" alt="Timeproof Network Red Blue Shield Emblem" width={20} height={20} />
+
                 TPN Intelligence Suite
               </button>
             </Link>

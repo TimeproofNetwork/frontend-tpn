@@ -36,7 +36,14 @@ export default function CreatorClusterStats() {
     <div className="min-h-screen bg-black text-white p-6">
       <div className="max-w-3xl mx-auto">
         <div className="flex items-center mb-6">
-          <Image src="/emblem.png" alt="TPN" width={32} height={32} className="mr-3" />
+          <Image
+          src="/emblem.png"
+          alt="Timeproof Network Red Blue Shield Emblem"
+          width={32}
+          height={32}
+          className="mr-3"
+        />
+
           <h1 className="text-2xl font-bold">Creator Cluster Statistics</h1>
         </div>
 

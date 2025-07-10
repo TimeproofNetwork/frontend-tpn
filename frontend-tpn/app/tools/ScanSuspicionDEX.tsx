@@ -37,7 +37,8 @@ export default function ScanSuspicionDEX() {
   return (
     <div className="max-w-3xl mx-auto mt-12 px-4">
       <div className="flex items-center gap-2 mb-6">
-        <Image src={emblem} alt="TPN" width={32} height={32} />
+        <Image src={emblem} alt="Timeproof Network Red Blue Shield Emblem" width={32} height={32} />
+
         <h1 className="text-2xl font-semibold">Suspicion Check for DEX Listing</h1>
       </div>
 

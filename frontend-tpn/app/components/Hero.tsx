@@ -8,12 +8,13 @@ export default function Hero() {
     <section className="flex flex-col items-center justify-center text-center px-4 py-24 bg-gradient-to-b from-black via-purple-900 to-black">
       <div className="flex items-center justify-center gap-4 mb-6">
         <Image
-          src="/emblem.png"
-          alt="TPN Emblem"
-          width={64}
-          height={64}
-          priority
-        />
+        src="/emblem.png"
+        alt="Timeproof Network Red Blue Shield Emblem"
+        width={64}
+        height={64}
+        priority
+      />
+
         <h1 className="text-4xl md:text-6xl font-bold tracking-tight">TIMEPROOF NETWORK</h1>
       </div>
       <h2 className="text-xl md:text-3xl font-light max-w-2xl">
