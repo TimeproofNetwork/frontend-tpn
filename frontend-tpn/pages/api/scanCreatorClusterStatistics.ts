@@ -1,5 +1,3 @@
-// /pages/api/scanCreatorClusterStatistics.ts
-
 import type { NextApiRequest, NextApiResponse } from "next";
 import { ethers } from "ethers";
 import TokenRegistryAbi from "@/abi/TokenRegistry.json";
@@ -8,7 +6,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const TOKEN_REGISTRY = process.env.NEXT_PUBLIC_TOKEN_REGISTRY as `0x${string}`;
-const RPC_URL = process.env.SEPOLIA_RPC_URL;  // ✅ Fixed: Correct backend environment variable
+const RPC_URL = process.env.SEPOLIA_RPC_URL;
 
 interface Token {
   name: string;
@@ -29,26 +27,25 @@ function editDistance(a: string, b: string): number {
   for (let j = 0; j <= b.length; j++) dp[0][j] = j;
   for (let i = 1; i <= a.length; i++) {
     for (let j = 1; j <= b.length; j++) {
-      dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+      dp[i][j] = (a[i - 1] === b[j - 1]) ? dp[i - 1][j - 1] : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
     }
   }
   return dp[a.length][b.length];
 }
 
-function isSC(a: Token, b: Token): boolean {
-  const n1 = sanitize(a.name);
-  const n2 = sanitize(b.name);
-  const s1 = sanitize(a.symbol);
-  const s2 = sanitize(b.symbol);
-  return s1.length <= 3 && s2.length <= 3 && editDistance(n1, n2) <= 3 && editDistance(s1, s2) <= 2;
+function isSC(input: Token, prior: Token): boolean {
+  const n1 = sanitize(input.name);
+  const n2 = sanitize(prior.name);
+  const s1 = sanitize(input.symbol);
+  const s2 = sanitize(prior.symbol);
+  return s1.length <= 3 && editDistance(n1, n2) <= 3 && editDistance(s1, s2) <= 2;
 }
 
-function isLSIC(a: Token, b: Token): boolean {
-  const s1 = sanitize(a.symbol);
-  const s2 = sanitize(b.symbol);
+function isLSIC(input: Token, prior: Token): boolean {
+  const s1 = sanitize(input.symbol);
   if (s1.length <= 3) return false;
-  const id1 = sanitize(a.name + a.symbol);
-  const id2 = sanitize(b.name + b.symbol);
+  const id1 = sanitize(input.name + input.symbol);
+  const id2 = sanitize(prior.name + prior.symbol);
   return editDistance(id1, id2) <= 2;
 }
 
@@ -95,7 +92,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i];
     const priorTokens = tokens.filter(t => t.timestamp < token.timestamp);
-    const isRoot = !priorTokens.some(t => t.symbol.length <= 3 ? isSC(token, t) : isLSIC(token, t));
+
+    let isRoot = true;
+    for (const prior of priorTokens) {
+      const isSCInput = token.symbol.length <= 3;
+      if (isSCInput && isSC(token, prior)) {
+        isRoot = false;
+        break;
+      }
+      if (!isSCInput && isLSIC(token, prior)) {
+        isRoot = false;
+        break;
+      }
+    }
+
     if (isRoot) rootTokens.add(token.index);
   }
 
@@ -112,7 +122,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (candidate.timestamp <= base.timestamp) continue;
       if (assignedTokens.has(candidate.index)) continue;
 
-      if (candidate.symbol.length <= 3) {
+      const isSCCandidate = candidate.symbol.length <= 3;
+
+      if (isSCCandidate) {
         if (isSC(candidate, base)) cluster.push(candidate);
       } else {
         if (isLSIC(candidate, base)) cluster.push(candidate);
@@ -139,7 +151,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   });
 
   clusters.forEach((cluster: Token[], idx: number) => {
-    cluster.slice(1).forEach((token: Token) => {
+    cluster.forEach((token: Token) => {
       const addr = token.creator;
       if (!creatorStats[addr]) return;
       creatorStats[addr].clusters.add(idx);
@@ -182,6 +194,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   return res.status(200).json({ output: lines.join("\n") });
 }
+
 
 
 

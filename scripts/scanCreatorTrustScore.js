@@ -82,26 +82,25 @@ async function main() {
       let matched = false;
 
       for (const prior of priorTokens) {
-        const isPriorRoot = !priorTokens.some(pt => pt.timestamp < prior.timestamp && (isSC(prior, pt) || isLSIC(prior, pt)));
+      if (token.symbol.length <= 3) {
+    // INPUT token qualifies for SC check
+      if (isSC(token, prior)) {
+      penalty += 10;
+      suspiciousCount++;
+      matched = true;
+      break;
+    }
+  } else {
+    // INPUT token qualifies for LSIC check
+    if (isLSIC(token, prior)) {
+      penalty += 25;
+      suspiciousCount++;
+      matched = true;
+      break;
+    }
+  }
+}
 
-        if (!isPriorRoot) continue;
-
-        if (token.symbol.length <= 3) {
-          if (isSC(token, prior)) {
-            penalty += 10;
-            suspiciousCount++;
-            matched = true;
-            break;
-          }
-        } else {
-          if (isLSIC(token, prior)) {
-            penalty += 25;
-            suspiciousCount++;
-            matched = true;
-            break;
-          }
-        }
-      }
     });
 
     const trustScore = Math.max(0, 100 - penalty);

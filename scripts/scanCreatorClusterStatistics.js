@@ -1,5 +1,3 @@
-// /scripts/scanCreatorClusterStatistics.js
-
 const { ethers } = require("hardhat");
 const { sanitizeInput } = require("./sanitizeInputs");
 
@@ -17,20 +15,17 @@ function editDistance(a, b) {
   return dp[a.length][b.length];
 }
 
-function isSC(a, b) {
-  const n1 = sanitizeInput(a.name);
-  const n2 = sanitizeInput(b.name);
-  const s1 = sanitizeInput(a.symbol);
-  const s2 = sanitizeInput(b.symbol);
-  return a.symbol.length <= 3 && b.symbol.length <= 3 && editDistance(n1, n2) <= 3 && editDistance(s1, s2) <= 2;
+function isSC(inputToken, priorToken) {
+  const n1 = sanitizeInput(inputToken.name);
+  const n2 = sanitizeInput(priorToken.name);
+  const s1 = sanitizeInput(inputToken.symbol);
+  const s2 = sanitizeInput(priorToken.symbol);
+  return editDistance(n1, n2) <= 3 && editDistance(s1, s2) <= 2;
 }
 
-function isLSIC(a, b) {
-  const s1 = sanitizeInput(a.symbol);
-  const s2 = sanitizeInput(b.symbol);
-  if (a.symbol.length <= 3) return false;
-  const id1 = sanitizeInput(a.name + a.symbol);
-  const id2 = sanitizeInput(b.name + b.symbol);
+function isLSIC(inputToken, priorToken) {
+  const id1 = sanitizeInput(inputToken.name + inputToken.symbol);
+  const id2 = sanitizeInput(priorToken.name + priorToken.symbol);
   return editDistance(id1, id2) <= 2;
 }
 
@@ -70,9 +65,22 @@ async function main() {
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i];
     const priorTokens = tokens.filter(t => t.timestamp < token.timestamp);
-    const isRoot = !priorTokens.some(t => {
-      return token.symbol.length <= 3 ? isSC(token, t) : isLSIC(token, t);
-    });
+    let isRoot = true;
+
+    for (const prior of priorTokens) {
+      const inputIsSC = token.symbol.length <= 3;
+
+      if (inputIsSC && isSC(token, prior)) {
+        isRoot = false;
+        break;
+      }
+
+      if (!inputIsSC && isLSIC(token, prior)) {
+        isRoot = false;
+        break;
+      }
+    }
+
     if (isRoot) rootTokens.add(token.index);
   }
 
@@ -118,12 +126,13 @@ async function main() {
   clusters.forEach((cluster, idx) => {
     const baseCreator = cluster[0].creator;
 
-    cluster.slice(1).forEach(token => {
-      const addr = token.creator;
-      if (!creatorStats[addr]) return;
-      creatorStats[addr].clusters.add(idx);
-      creatorStats[addr].contribution++;
-    });
+    cluster.forEach(token => {
+  const addr = token.creator;
+  if (!creatorStats[addr]) return;
+  creatorStats[addr].clusters.add(idx);
+  creatorStats[addr].contribution++;
+});
+
   });
 
   const scores = Object.entries(creatorStats)
@@ -164,6 +173,7 @@ main().catch((err) => {
   console.error("❌ Scan Failed:", err);
   process.exit(1);
 });
+
 
 
 

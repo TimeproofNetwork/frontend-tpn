@@ -4,7 +4,7 @@ const { ethers } = require("hardhat");
 const TOKEN_REGISTRY = "0x92aCF7E58E8C65d0Aad3ed4B252c064737Ad9B52";
 
 // ✅ Target creator wallet (checksummed or lowercase works)
-const CREATOR = "0x6E118Ac0da2170697a4F942A0C509B29C59F698f".toLowerCase();
+const CREATOR = "0xa276C9Df1A6676ef444F25d53914C13Eba6DEe21".toLowerCase();
 
 async function main() {
   const [deployer] = await ethers.getSigners();

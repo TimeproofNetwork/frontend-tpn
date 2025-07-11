@@ -91,28 +91,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   let penalty = 0;
 
   creatorTokens.forEach(token => {
-    const priorTokens = tokens.filter(t => t.timestamp < token.timestamp);
+  const priorTokens = tokens.filter(t => t.timestamp < token.timestamp);
 
-    for (const prior of priorTokens) {
-      const isPriorRoot = !priorTokens.some(pt => pt.timestamp < prior.timestamp && (isSC(prior, pt) || isLSIC(prior, pt)));
-
-      if (!isPriorRoot) continue;
-
-      if (token.symbol.length <= 3) {
-        if (isSC(token, prior)) {
-          penalty += 10;
-          suspiciousCount++;
-          break;
-        }
-      } else {
-        if (isLSIC(token, prior)) {
-          penalty += 25;
-          suspiciousCount++;
-          break;
-        }
+  for (const prior of priorTokens) {
+    if (token.symbol.length <= 3) {
+      // INPUT token → SC check
+      if (isSC(token, prior)) {
+        penalty += 10;
+        suspiciousCount++;
+        break;
+      }
+    } else {
+      // INPUT token → LSIC check
+      if (isLSIC(token, prior)) {
+        penalty += 25;
+        suspiciousCount++;
+        break;
       }
     }
-  });
+  }
+});  // ✅ This closes the .forEach loop correctly
 
   const trustScore = Math.max(0, 100 - penalty);
 
