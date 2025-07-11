@@ -259,7 +259,7 @@ export default function TokenRegister() {
           </a>
         </p>
         <p className="mb-2">
-          Even if your MetaMask doesn’t show your TPN balance, our system reads your balance directly from on-chain data. 👉 Click the <span className="font-semibold">Check Balance</span> button above to see your wallet balance.
+          Even if your MetaMask doesn’t show your TPN balance, our system reads your balance directly from on-chain data. 👉 Click the <span className="font-semibold">Check TPN Balance</span> button above to see your wallet balance.
         </p>
         <p>
           Alternatively, you can verify your TPN balance manually on:<br />

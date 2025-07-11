@@ -45,6 +45,9 @@ export const generateMetadata = (): Metadata => {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="bg-black text-white">
+      <head>
+        <link rel="icon" href="/favicon.ico" />
+      </head>
       <body className="min-h-screen bg-gradient-to-b from-black via-purple-950 to-black font-sans">
         <Providers>
           <ClientWrapper>
@@ -56,6 +59,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     </html>
   );
 }
+
 
 
 
