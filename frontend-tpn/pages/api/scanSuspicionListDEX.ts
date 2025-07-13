@@ -64,12 +64,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const isSC = symbolSan.length <= 3;
 
   let tokens: any[] = [];
-  try {
-    const rawTokens = await registry.getTokenLogbook();
-    tokens = rawTokens.map((token: any, index: number) => ({ ...token, index }));
-  } catch (err: any) {
-    return res.status(500).json({ output: `❌ Failed to fetch tokens from registry.\n${err.message || String(err)}` });
-  }
+try {
+  const rawTokens = await registry.getTokenLogbook();
+  tokens = rawTokens.map((token: any, index: number) => ({ ...token, index }));
+  tokens.sort((a: any, b: any) => a.timestamp - b.timestamp);  // ✅ Canonical sort
+} catch (err: any) {
+  return res.status(500).json({ output: `❌ Failed to fetch tokens from registry.\n${err.message || String(err)}` });
+}
 
   const inputIndex = tokens.findIndex(t => sanitize(t.name) === nameSan && sanitize(t.symbol) === symbolSan);
   const inputToken = inputIndex !== -1 ? tokens[inputIndex] : {

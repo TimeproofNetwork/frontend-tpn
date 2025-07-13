@@ -1,3 +1,5 @@
+// /pages/api/scanCreatorClusterStatistics.ts
+
 import type { NextApiRequest, NextApiResponse } from "next";
 import { ethers } from "ethers";
 import TokenRegistryAbi from "@/abi/TokenRegistry.json";
@@ -76,6 +78,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         index,
       });
     });
+
+    tokens.sort((a, b) => a.timestamp - b.timestamp); // ✅ Canonical sort by timestamp
+
   } catch (err: any) {
     return res.status(500).json({ output: `❌ Failed to fetch token logbook.\n\n${err.message || String(err)}` });
   }
@@ -194,6 +199,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   return res.status(200).json({ output: lines.join("\n") });
 }
+
 
 
 

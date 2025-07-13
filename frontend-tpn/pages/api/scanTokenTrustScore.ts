@@ -57,6 +57,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const rawTokens = await registry.getTokenLogbook();
   const tokens = rawTokens.map((token: any, index: number) => ({ ...token, index }));
+  tokens.sort((a: any, b: any) => a.timestamp - b.timestamp);
+ // ✅ Canonical CIS ordering
+
 
   const inputIndex = tokens.findIndex((t: any) => unified(t.name, t.symbol) === unifiedInput);
   const isRegistered = inputIndex !== -1;

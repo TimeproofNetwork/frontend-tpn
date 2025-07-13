@@ -57,6 +57,7 @@ async function main() {
   const registry = await ethers.getContractAt("TokenRegistry", TOKEN_REGISTRY);
   const rawTokens = await registry.getTokenLogbook();
   const tokens = rawTokens.map((t, i) => ({ ...t, index: i }));
+  tokens.sort((a, b) => a.timestamp - b.timestamp); // ✅ Enforce order
 
   const nameSan = sanitize(nameRaw);
   const symbolSan = sanitize(symbolRaw);

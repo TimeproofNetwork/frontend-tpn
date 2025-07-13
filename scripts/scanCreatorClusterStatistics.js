@@ -40,21 +40,25 @@ async function main() {
   console.log("📚 Fetching registered tokens from logbook...");
 
   const tokens = [];
-  for (let i = 0; i < 1000; i++) {
-    try {
-      const token = await Registry.tokenLogbook(i);
-      tokens.push({
-        name: token.name,
-        symbol: token.symbol,
-        address: token.tokenAddress,
-        creator: token.registeredBy.toLowerCase(),
-        timestamp: token.timestamp.toNumber(),
-        index: i,
-      });
-    } catch {
-      break;
-    }
+for (let i = 0; i < 1000; i++) {
+  try {
+    const token = await Registry.tokenLogbook(i);
+    tokens.push({
+      name: token.name,
+      symbol: token.symbol,
+      address: token.tokenAddress,
+      creator: token.registeredBy.toLowerCase(),
+      timestamp: token.timestamp.toNumber(),
+      index: i,
+    });
+  } catch {
+    break;
   }
+}
+
+// ✅ Enforce strict chronological order for accurate root and cluster detection
+tokens.sort((a, b) => a.timestamp - b.timestamp);
+
 
   console.log(`✅ Fetched ${tokens.length} tokens from registry.`);
 

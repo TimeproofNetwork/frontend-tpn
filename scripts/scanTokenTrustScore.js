@@ -45,6 +45,7 @@ async function main() {
 
   const tokensRaw = await registry.getTokenLogbook();
   const tokens = tokensRaw.map((t, i) => ({ ...t, index: i }));
+  tokens.sort((a, b) => a.timestamp - b.timestamp); // ✅ Enforce order for base & cluster detection
 
   const nameSan = sanitize(nameRaw);
   const symbolSan = sanitize(symbolRaw);

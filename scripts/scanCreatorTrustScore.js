@@ -33,7 +33,6 @@ function isSC(a, b) {
 
 function isLSIC(a, b) {
   const s1 = sanitizeInput(a.symbol);
-  const s2 = sanitizeInput(b.symbol);
   if (s1.length <= 3) return false;
   const id1 = sanitizeInput(a.name + a.symbol);
   const id2 = sanitizeInput(b.name + b.symbol);
@@ -60,6 +59,8 @@ async function main() {
     }
   }
 
+  tokens.sort((a, b) => a.timestamp - b.timestamp);
+
   const creators = {};
   tokens.forEach(token => {
     if (!creators[token.creator]) {
@@ -73,49 +74,43 @@ async function main() {
   Object.entries(creators).forEach(([creator, creatorTokens]) => {
     if (targetCreator && creator !== targetCreator) return;
 
+    console.log(`\n🔍 Suspicion Scan started by: ${creator}`);
+    console.log(`📚 Fetching registered tokens from logbook...`);
+    console.log(`✅ Fetched ${tokens.length} tokens from registry.`);
+    console.log(`📦 Total tokens created: ${creatorTokens.length}\n`);
+
     let penalty = 0;
     let suspiciousCount = 0;
 
     creatorTokens.forEach(token => {
       const priorTokens = tokens.filter(t => t.timestamp < token.timestamp);
-
-      let matched = false;
-
       for (const prior of priorTokens) {
-      if (token.symbol.length <= 3) {
-    // INPUT token qualifies for SC check
-      if (isSC(token, prior)) {
-      penalty += 10;
-      suspiciousCount++;
-      matched = true;
-      break;
-    }
-  } else {
-    // INPUT token qualifies for LSIC check
-    if (isLSIC(token, prior)) {
-      penalty += 25;
-      suspiciousCount++;
-      matched = true;
-      break;
-    }
-  }
-}
-
+        if (token.symbol.length <= 3) {
+          if (isSC(token, prior)) {
+            suspiciousCount++;
+            penalty += 10;
+            break;
+          }
+        } else {
+          if (isLSIC(token, prior)) {
+            suspiciousCount++;
+            penalty += 25;
+            break;
+          }
+        }
+      }
     });
 
     const trustScore = Math.max(0, 100 - penalty);
-
-    console.log(`\n🔍 Creator: ${creator}`);
-    console.log(`📦 Total tokens created: ${creatorTokens.length}`);
-    console.log(`🧪 Suspicious tokens found (self and external clones): ${suspiciousCount}`);
+    console.log(`✏️ Suspicious tokens found: ${suspiciousCount}`);
     console.log(`📊 Estimated Trust Score: ${trustScore}/100`);
 
     if (trustScore >= 90) {
-      console.log("✅ Creator is highly trustworthy.");
+      console.log(`✅ Creator is highly trustworthy.`);
     } else if (trustScore >= 60) {
-      console.log("⚠️ Moderate risk. Review token lineage.");
+      console.log(`⚠️ Moderate risk. Review token lineage.`);
     } else {
-      console.log("🚨 High risk. Creator may be deploying clones.");
+      console.log(`🚨 High risk. Creator may be deploying clones.`);
     }
   });
 }
@@ -124,6 +119,7 @@ main().catch((err) => {
   console.error("❌ Scan Failed:", err);
   process.exit(1);
 });
+
 
 
 
