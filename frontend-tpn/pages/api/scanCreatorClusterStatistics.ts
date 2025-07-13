@@ -78,9 +78,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         index,
       });
     });
-
-    tokens.sort((a, b) => a.timestamp - b.timestamp); // ✅ Canonical sort by timestamp
-
+    tokens.sort((a, b) => a.timestamp - b.timestamp);
   } catch (err: any) {
     return res.status(500).json({ output: `❌ Failed to fetch token logbook.\n\n${err.message || String(err)}` });
   }
@@ -110,13 +108,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         break;
       }
     }
-
     if (isRoot) rootTokens.add(token.index);
   }
 
   for (let i = 0; i < tokens.length; i++) {
     const base = tokens[i];
-
     if (!rootTokens.has(base.index)) continue;
     if (assignedTokens.has(base.index)) continue;
 
@@ -156,6 +152,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   });
 
   clusters.forEach((cluster: Token[], idx: number) => {
+    if (cluster.length < 2) return;
     cluster.forEach((token: Token) => {
       const addr = token.creator;
       if (!creatorStats[addr]) return;
@@ -165,7 +162,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   });
 
   const scores = Object.entries(creatorStats)
-    .filter(([_, data]) => data.clusters.size > 0 && data.contribution >= 1)
     .map(([creator, data]) => {
       const clusterCount = data.clusters.size;
       const clusterContribution = data.contribution;
@@ -177,28 +173,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         crs: crs.toFixed(2),
       };
     })
+    .filter(entry => entry.clusterCount > 0 && entry.clusterContribution > 1)
     .sort((a, b) => Number(b.crs) - Number(a.crs));
 
   lines.push(`\n🔎 Identified ${clusters.length} suspicion clusters.`);
   lines.push("\n📊 Ranked Creator Cluster Scores:\n");
 
-  const top = scores[0];
   const targetIndex = scores.findIndex(s => s.creator === creatorInput);
   const target = targetIndex !== -1 ? scores[targetIndex] : null;
 
-  if (top && (!target || top.creator !== creatorInput)) {
-    lines.push(`#1  🧑‍💻 ${top.creator} → Clusters: ${top.clusterCount} | Cluster Contribution: ${top.clusterContribution}`);
-  }
+  scores.forEach((entry, i) => {
+    if (i === 0 || entry.creator === creatorInput) {
+      lines.push(`#${i + 1}  🧑‍💻 ${entry.creator} → Clusters: ${entry.clusterCount} | Cluster Contribution: ${entry.clusterContribution}`);
+    }
+  });
 
-  if (target) {
-    const rank = targetIndex + 1;
-    lines.push(`#${rank}  🧑‍💻 ${target.creator} → Clusters: ${target.clusterCount} | Cluster Contribution: ${target.clusterContribution}`);
-  } else {
+  if (!target) {
     lines.push(`❌ No clusters found for ${creatorInput}`);
   }
 
   return res.status(200).json({ output: lines.join("\n") });
 }
+
+
+
+
+
+
 
 
 

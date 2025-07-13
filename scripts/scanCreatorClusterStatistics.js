@@ -20,18 +20,20 @@ function isSC(inputToken, priorToken) {
   const n2 = sanitizeInput(priorToken.name);
   const s1 = sanitizeInput(inputToken.symbol);
   const s2 = sanitizeInput(priorToken.symbol);
-  return editDistance(n1, n2) <= 3 && editDistance(s1, s2) <= 2;
+  const nameDistance = editDistance(n1, n2);
+  const symbolDistance = editDistance(s1, s2);
+  return nameDistance <= 3 && symbolDistance <= 2;
 }
 
 function isLSIC(inputToken, priorToken) {
   const id1 = sanitizeInput(inputToken.name + inputToken.symbol);
   const id2 = sanitizeInput(priorToken.name + priorToken.symbol);
-  return editDistance(id1, id2) <= 2;
+  const idDistance = editDistance(id1, id2);
+  return idDistance <= 2;
 }
 
 async function main() {
   const Registry = await ethers.getContractAt("TokenRegistry", TOKEN_REGISTRY);
-
   const creatorEnv = process.env.CREATOR || "";
   const [deployer] = await ethers.getSigners();
   const usedWallet = (creatorEnv || deployer.address).toLowerCase();
@@ -40,26 +42,23 @@ async function main() {
   console.log("📚 Fetching registered tokens from logbook...");
 
   const tokens = [];
-for (let i = 0; i < 1000; i++) {
-  try {
-    const token = await Registry.tokenLogbook(i);
-    tokens.push({
-      name: token.name,
-      symbol: token.symbol,
-      address: token.tokenAddress,
-      creator: token.registeredBy.toLowerCase(),
-      timestamp: token.timestamp.toNumber(),
-      index: i,
-    });
-  } catch {
-    break;
+  for (let i = 0; i < 1000; i++) {
+    try {
+      const token = await Registry.tokenLogbook(i);
+      tokens.push({
+        name: token.name,
+        symbol: token.symbol,
+        address: token.tokenAddress,
+        creator: token.registeredBy.toLowerCase(),
+        timestamp: token.timestamp.toNumber(),
+        index: i,
+      });
+    } catch {
+      break;
+    }
   }
-}
 
-// ✅ Enforce strict chronological order for accurate root and cluster detection
-tokens.sort((a, b) => a.timestamp - b.timestamp);
-
-
+  tokens.sort((a, b) => a.timestamp - b.timestamp);
   console.log(`✅ Fetched ${tokens.length} tokens from registry.`);
 
   const clusters = [];
@@ -73,12 +72,10 @@ tokens.sort((a, b) => a.timestamp - b.timestamp);
 
     for (const prior of priorTokens) {
       const inputIsSC = token.symbol.length <= 3;
-
       if (inputIsSC && isSC(token, prior)) {
         isRoot = false;
         break;
       }
-
       if (!inputIsSC && isLSIC(token, prior)) {
         isRoot = false;
         break;
@@ -90,7 +87,6 @@ tokens.sort((a, b) => a.timestamp - b.timestamp);
 
   for (let i = 0; i < tokens.length; i++) {
     const base = tokens[i];
-
     if (!rootTokens.has(base.index)) continue;
     if (assignedTokens.has(base.index)) continue;
 
@@ -102,9 +98,13 @@ tokens.sort((a, b) => a.timestamp - b.timestamp);
       if (assignedTokens.has(candidate.index)) continue;
 
       if (candidate.symbol.length <= 3) {
-        if (isSC(candidate, base)) cluster.push(candidate);
+        if (isSC(candidate, base)) {
+          cluster.push(candidate);
+        }
       } else {
-        if (isLSIC(candidate, base)) cluster.push(candidate);
+        if (isLSIC(candidate, base)) {
+          cluster.push(candidate);
+        }
       }
     }
 
@@ -118,7 +118,6 @@ tokens.sort((a, b) => a.timestamp - b.timestamp);
   }
 
   const creatorStats = {};
-
   tokens.forEach(token => {
     const addr = token.creator;
     if (!creatorStats[addr]) {
@@ -128,19 +127,17 @@ tokens.sort((a, b) => a.timestamp - b.timestamp);
   });
 
   clusters.forEach((cluster, idx) => {
-    const baseCreator = cluster[0].creator;
-
+    if (cluster.length < 2) return;
     cluster.forEach(token => {
-  const addr = token.creator;
-  if (!creatorStats[addr]) return;
-  creatorStats[addr].clusters.add(idx);
-  creatorStats[addr].contribution++;
-});
-
+      const addr = token.creator;
+      if (!creatorStats[addr]) return;
+      creatorStats[addr].clusters.add(idx);
+      creatorStats[addr].contribution++;
+    });
   });
 
   const scores = Object.entries(creatorStats)
-    .filter(([_, data]) => data.clusters.size > 0 && data.contribution >= 1)
+    .filter(([_, data]) => data.clusters.size > 0 && data.contribution >= 2)
     .map(([creator, data]) => {
       const clusterCount = data.clusters.size;
       const clusterContribution = data.contribution;
@@ -177,6 +174,14 @@ main().catch((err) => {
   console.error("❌ Scan Failed:", err);
   process.exit(1);
 });
+
+
+
+
+
+
+
+
 
 
 
