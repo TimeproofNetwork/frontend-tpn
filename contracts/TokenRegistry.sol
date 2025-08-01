@@ -38,14 +38,26 @@ contract TokenRegistry is Ownable, ReentrancyGuard {
 
 
     struct TokenInfo {
-        string name;
-        string symbol;
-        address tokenAddress;
-        address registeredBy;
-        uint256 timestamp;
-        uint8 trustLevel;
-        bool isRegistered;
-    }
+    string name;
+    string symbol;
+    address tokenAddress;
+    address registeredBy;
+    uint256 timestamp;
+    string proof1;
+    string proof2;
+    uint8 trustLevel;
+    bool isRegistered;
+    bool upgradeRequested;
+}
+
+struct BadgeMetadata {
+    string name;
+    string symbol;
+    uint8 trustLevel;
+    string levelName;
+    string levelColor;
+    uint256 timestamp;
+}
 
     // ════════════════════════════════
     // 🛡️ Layer 1: Metadata Protections
@@ -54,7 +66,13 @@ contract TokenRegistry is Ownable, ReentrancyGuard {
     mapping(address => TokenInfo) public registeredTokens;
     mapping(bytes32 => bool) public usedFingerprints;
     mapping(bytes32 => address) public nameSymbolToAddress;
+    // 🧬 Tracks uniqueness of sanitized (name, symbol) fingerprint
+    mapping(bytes32 => bool) public fingerprintExists;
+    // ✅ DAO-managed trusted domain lists
+    mapping(string => bool) public allowedExchanges;
+    mapping(string => bool) public allowedAuditors;
 
+        
         // 👇 This function must be inside this contract
     function getRegisteredToken(string memory name, string memory symbol) external view returns (
         string memory,
@@ -94,20 +112,29 @@ contract TokenRegistry is Ownable, ReentrancyGuard {
     symbol = info.symbol;
     trustLevel = info.trustLevel;
 
-    if (trustLevel == 1) {
-        levelName = "Basic Trust";
-        levelColor = "#FFD700"; // Yellow
+    if (trustLevel == 3) {
+        levelName = "Audited & Exchange Verified";
+        levelColor = "#800080"; // Purple
     } else if (trustLevel == 2) {
         levelName = "Exchange Verified";
         levelColor = "#00FF00"; // Green
-    } else if (trustLevel == 3) {
-        levelName = "Audited & Exchange Verified";
-        levelColor = "#800080"; // Purple
+    } else if (trustLevel == 1) {
+        if (bytes(info.proof2).length > 0) {
+            levelName = "Level 1: Upgrade level 3 under DAO review";
+            levelColor = "#FFD700"; // Yellow
+        } else if (bytes(info.proof1).length > 0) {
+            levelName = "Level 1: Upgrade level 2 under DAO review";
+            levelColor = "#FFD700"; // Yellow
+        } else {
+            levelName = "Basic Trust";
+            levelColor = "#FFD700"; // Yellow
+        }
     } else {
         levelName = "Unverified";
         levelColor = "#FFFFFF"; // White fallback
     }
 }
+
    // ════════════════════════════════
    // 🔒 Layer 2: Global Bans & Lists
    // ════════════════════════════════
@@ -205,24 +232,33 @@ function getQuarantinedToken(uint256 index) external view returns (
     // 📢 Events
     // ════════════════════════════════
 
-    event TokenRegisteredCompressed(
+event TokenRegisteredCompressed(
     bytes32 nameSymbolHash,
     address tokenAddress,
     address indexed creator,
     uint8 trustLevel
 );
 
-    event TokenGloballyBanned(string name, string symbol);
-    event TokenUnbanned(string name, string symbol);
-    event MinFeeUpdated(uint256 newFee);
-    event SelfHealTriggered(string name, string symbol, address removedToken, address keeper);
-    event RegistryPaused();
-    event RegistryUnpaused();
-    event DAOSet(address newDAO);
-    event TokenQuarantined(string name, string symbol);
-    event TokenUnquarantined(string name, string symbol);
-    event BadgeLevelUpdated(address tokenAddress, uint8 newLevel);
-    event DAOBanApplied(string name, string symbol);
+event TokenRegistered(
+    string name,
+    string symbol,
+    address tokenAddress,
+    address creator,
+    uint256 timestamp
+);
+
+event TokenGloballyBanned(string name, string symbol);
+event TokenUnbanned(string name, string symbol);
+event MinFeeUpdated(uint256 newFee);
+event SelfHealTriggered(string name, string symbol, address removedToken, address keeper);
+event RegistryPaused();
+event RegistryUnpaused();
+event DAOSet(address newDAO);
+event TokenQuarantined(string name, string symbol);
+event TokenUnquarantined(string name, string symbol);
+event BadgeLevelUpdated(address tokenAddress, uint8 newLevel);
+event DAOBanApplied(string name, string symbol);
+
 
     // ════════════════════════════════
     // 🔐 Modifiers
@@ -253,6 +289,12 @@ function getQuarantinedToken(uint256 index) external view returns (
     badgeNFTAddress = _badgeNFTAddress;
 
     _transferOwnership(_customOwner); // ✅ Sets custom owner safely
+
+    // ✅ Default trusted exchanges and auditors
+    allowedExchanges["binance.com"] = true;
+    allowedExchanges["coinbase.com"] = true;
+    allowedAuditors["certik.com"] = true;
+    allowedAuditors["trailofbits.com"] = true;
 }
 
     // ════════════════════════════════
@@ -302,7 +344,14 @@ function getQuarantinedToken(uint256 index) external view returns (
     // 📝 Token Registration
     // ════════════════════════════════
 
-    function registerToken(string memory name, string memory symbol, address tokenAddress, uint8 trustLevel) external notPaused {
+function registerToken(
+    string memory name,
+    string memory symbol,
+    address tokenAddress,
+    string memory proof1,
+    string memory proof2
+) external notPaused nonReentrant {
+
     // 🔠 Layer 0: ASCII Only
     require(_isASCII(name) && _isASCII(symbol), "Layer0: Only ASCII allowed");
 
@@ -310,18 +359,18 @@ function getQuarantinedToken(uint256 index) external view returns (
     string memory sanitizedName = sanitize(name);
     string memory sanitizedSymbol = sanitize(symbol);
     if (
-    bytes(name).length != bytes(sanitizedName).length ||
-    bytes(symbol).length != bytes(sanitizedSymbol).length
-) {
-    revert("Layer1: Sanitized mismatch");
-}
-    // 🔍 Generate Hashes (Avoid function call overhead)
+        bytes(name).length != bytes(sanitizedName).length ||
+        bytes(symbol).length != bytes(sanitizedSymbol).length
+    ) {
+        revert("Layer1: Sanitized mismatch");
+    }
+
+    // 🔍 Generate Hashes (Sanitized Only)
     bytes32 nameSymbolHash = keccak256(abi.encodePacked(sanitizedName, sanitizedSymbol));
     bytes32 fingerprintHash = keccak256(abi.encodePacked(sanitizedName, sanitizedSymbol, msg.sender));
     require(nameSymbolToAddress[nameSymbolHash] == address(0), "Layer2: Fingerprint already used");
 
-
-    // 🔐 Layer 2–5: Security Filters
+    // 🔐 Layer 2–6 Checks
     require(!usedFingerprints[fingerprintHash], "Layer2: Fingerprint used");
     require(!globalBanList[nameSymbolHash], "Layer3: Token is globally banned");
     require(!daoPunishmentBan[nameSymbolHash], "Layer4: DAO banned");
@@ -331,56 +380,71 @@ function getQuarantinedToken(uint256 index) external view returns (
     // ⛔ Reject re-registration
     require(registeredTokens[tokenAddress].timestamp == 0, "Already registered");
 
-    // ⏱ Cooldown and Submission Burst Control
+    // ⏱ Cooldown & Burst Control
     uint256 cooldown = customCooldowns[msg.sender] > 0 ? customCooldowns[msg.sender] : defaultCooldown;
     uint256 maxBurst = defaultMaxBurst;
-
     uint256 last = lastSubmissionTimestamp[msg.sender];
     uint256 count = submissionBurstCount[msg.sender];
 
     if (block.timestamp < last + cooldown) {
-    require(count < maxBurst, "Rate: Too many submissions");
-    submissionBurstCount[msg.sender] = count + 1;
-} else {
-    lastSubmissionTimestamp[msg.sender] = block.timestamp;
-    if (count != 1) submissionBurstCount[msg.sender] = 1;
-}
-    // 🔥 Enforce TPN Fee
+        require(count < maxBurst, "Rate: Too many submissions");
+        submissionBurstCount[msg.sender] = count + 1;
+    } else {
+        lastSubmissionTimestamp[msg.sender] = block.timestamp;
+        if (count != 1) submissionBurstCount[msg.sender] = 1;
+    }
+
+    // 🔥 TPN Burn Fee
     IERC20Burnable tpn = IERC20Burnable(tpnTokenAddress);
     tpn.burnFrom(msg.sender, minTPNFee);
 
-    // 🧾 Finalize: Mark as used
+    // ✅ Finalize Fingerprint
     creatorSubmissionCount[msg.sender]++;
     usedFingerprints[fingerprintHash] = true;
-    
-    // 📦 Register Token
+
+    // 🧾 Validate Proofs
+    if (bytes(proof1).length > 0) {
+        require(_validExchangeProof(proof1), unicode"❌ Invalid exchange verification link");
+    }
+    if (bytes(proof2).length > 0) {
+        require(_validAuditProof(proof2), unicode"❌ Invalid audit verification link");
+    }
+
+    // 📝 Mandatory fields check
+    require(bytes(name).length > 0 && bytes(symbol).length > 0, "Name and symbol required");
+    require(tokenAddress != address(0), "Token address cannot be zero");
+
+    // 🔐 Fingerprint Uniqueness (Sanitized Only)
+    require(!fingerprintExists[nameSymbolHash], "Token with same fingerprint already registered");
+
+    // 🧾 Create and store token
     TokenInfo memory newToken = TokenInfo({
-    name: name,
-    symbol: symbol,
-    tokenAddress: tokenAddress,
-    registeredBy: msg.sender,
-    timestamp: block.timestamp,
-    trustLevel: trustLevel,
-    isRegistered: true
-});
+        name: name,
+        symbol: symbol,
+        tokenAddress: tokenAddress,
+        registeredBy: msg.sender,
+        timestamp: block.timestamp,
+        trustLevel: 1,
+        isRegistered: true,
+        proof1: proof1,
+        proof2: proof2,
+        upgradeRequested: (bytes(proof1).length > 0 || bytes(proof2).length > 0)
+    });
 
     registeredTokens[tokenAddress] = newToken;
-
+    tokenLogbook.push(newToken);
     nameSymbolToAddress[nameSymbolHash] = tokenAddress;
-
-
-    // 🧾 Log Entry
-    tokenLogbook.push(registeredTokens[tokenAddress]);
-
-    // ✅ Log the token in array
+    fingerprintExists[nameSymbolHash] = true;
     allRegisteredTokens.push(tokenAddress);
 
-    // 📢 Emit Event
-    emit TokenRegisteredCompressed(nameSymbolHash, tokenAddress, msg.sender, trustLevel);
-
+    emit TokenRegistered(name, symbol, tokenAddress, msg.sender, block.timestamp);
+    emit TokenRegisteredCompressed(nameSymbolHash, tokenAddress, msg.sender, newToken.trustLevel);
 }
-    function mintBadgeFor(address tokenAddress) external nonReentrant notPaused {
+ // ✅ Close registerToken function
 
+
+// 🎖️ Badge Minting (Separated to optimize gas)
+function mintBadgeFor(address tokenAddress) external nonReentrant notPaused {
     TokenInfo memory info = registeredTokens[tokenAddress];
     require(info.isRegistered, "Token not registered");
     require(info.registeredBy == msg.sender, "Not token creator");
@@ -388,6 +452,7 @@ function getQuarantinedToken(uint256 index) external view returns (
     IBadgeNFT(badgeNFTAddress).mintBadge(msg.sender, info.trustLevel);
     emit BadgeLevelUpdated(tokenAddress, info.trustLevel);
 }
+
 
 // ════════════════════════════════
 // 🛠️ DAO & Admin Functions (Final Matrix Compliant)
@@ -514,8 +579,30 @@ function daoDowngradeTrustLevel(
     IBadgeNFT(badgeNFTAddress).mintBadge(info.registeredBy, newLevel);
     emit BadgeLevelUpdated(token, newLevel);
 }
+// ════════════════════════════════
+// 🌐 DAO-Controlled Trusted Domain Lists
+// ════════════════════════════════
+
+function addTrustedExchange(string memory domain) external onlyDAO {
+    require(bytes(domain).length > 3, "Invalid domain");
+    allowedExchanges[domain] = true;
+}
+
+function addTrustedAuditor(string memory domain) external onlyDAO {
+    require(bytes(domain).length > 3, "Invalid domain");
+    allowedAuditors[domain] = true;
+}
+
+function removeTrustedExchange(string memory domain) external onlyDAO {
+    allowedExchanges[domain] = false;
+}
+
+function removeTrustedAuditor(string memory domain) external onlyDAO {
+    allowedAuditors[domain] = false;
+}
 
 // Optional helper to find token by name+symbol if needed
+
 function getTokenByNameSymbol(string memory name, string memory symbol) internal view returns (address) {
     bytes32 id = visualID(name, symbol);
 
@@ -612,10 +699,33 @@ function getTokenByNameSymbol(string memory name, string memory symbol) internal
     // 🔍 Read-Only View Functions
     // ════════════════════════════════
 
-    function getTokenInfo(address tokenAddress) external view returns (string memory, string memory, address, address, uint256, uint8) {
-        TokenInfo memory info = registeredTokens[tokenAddress];
-        return (info.name, info.symbol, info.tokenAddress, info.registeredBy, info.timestamp, info.trustLevel);
-    }
+    function getTokenInfo(address tokenAddress) external view returns (
+    string memory name,
+    string memory symbol,
+    address tokenAddr,
+    address creator,
+    uint256 timestamp,
+    string memory proof1,
+    string memory proof2,
+    uint8 trustLevel,
+    bool isRegistered,
+    bool upgradeRequested
+) {
+    TokenInfo memory info = registeredTokens[tokenAddress];
+    return (
+        info.name,
+        info.symbol,
+        info.tokenAddress,
+        info.registeredBy,
+        info.timestamp,
+        info.proof1,
+        info.proof2,
+        info.trustLevel,
+        info.isRegistered,
+        info.upgradeRequested
+    );
+}
+
 
     function getTokenLogbook() external view returns (TokenInfo[] memory) {
         return tokenLogbook;
@@ -639,46 +749,53 @@ function getTokenByNameSymbol(string memory name, string memory symbol) internal
     function isPaused() external view returns (bool) {
         return paused;
     }
-    function getTokenBadgeMetadata(address token) external view returns (
-    string memory name,
-    string memory symbol,
-    uint8 trustLevel,
-    string memory levelName,
-    string memory levelColor,
-    uint256 timestamp
-) {
-
+    function getProofLinks(address token) external view returns (string memory proof1, string memory proof2) {
     TokenInfo memory info = registeredTokens[token];
-
-    name = info.name;
-    symbol = info.symbol;
-    trustLevel = info.trustLevel;
-    timestamp = info.timestamp;
-
- if (trustLevel == 1) {
-    levelName = "Basic Trust";
-    levelColor = "#FFD700"; // Yellow
-} else if (trustLevel == 2) {
-    levelName = "Exchange Verified";
-    levelColor = "#00FF00"; // Green
-} else if (trustLevel == 3) {
-    levelName = "Audited & Exchange Verified";
-    levelColor = "#800080"; // Purple
-} else {
-    levelName = "Unverified";
-    levelColor = "#FFFFFF"; // White
+    require(info.isRegistered, "Token not registered");
+    return (info.proof1, info.proof2);
 }
+    function getTokenBadgeMetadata(address token) external view returns (BadgeMetadata memory) {
+    TokenInfo storage info = registeredTokens[token]; // storage instead of memory
+
+    string memory levelName;
+    string memory levelColor;
+
+    if (info.trustLevel == 1) {
+        levelName = "Basic Trust";
+        levelColor = "#FFD700";
+    } else if (info.trustLevel == 2) {
+        levelName = "Exchange Verified";
+        levelColor = "#00FF00";
+    } else if (info.trustLevel == 3) {
+        levelName = "Audited & Exchange Verified";
+        levelColor = "#800080";
+    } else {
+        levelName = "Unverified";
+        levelColor = "#FFFFFF";
+    }
+
+    return BadgeMetadata({
+        name: info.name,
+        symbol: info.symbol,
+        trustLevel: info.trustLevel,
+        levelName: levelName,
+        levelColor: levelColor,
+        timestamp: info.timestamp
+    });
 }
+
+
 // ✅ Minimal trust level getter for frontend compatibility
+
 function getTrustLevel(address token) external view returns (uint8) {
     return registeredTokens[token].trustLevel;
 }
-function _validExchangeProof(string memory url) internal pure returns (bool) {
-    return _contains(url, "binance.com") || _contains(url, "coinbase.com");
+function _validExchangeProof(string memory url) internal view returns (bool) {
+    return _matchAllowedDomain(url, allowedExchanges);
 }
 
-function _validAuditProof(string memory url) internal pure returns (bool) {
-    return _contains(url, "certik.com") || _contains(url, "trailofbits.com");
+function _validAuditProof(string memory url) internal view returns (bool) {
+    return _matchAllowedDomain(url, allowedAuditors);
 }
 
 function _contains(string memory str, string memory substr) internal pure returns (bool) {
@@ -704,6 +821,18 @@ function _indexOf(string memory haystack, string memory needle) internal pure re
     return -1;
 }
 
+// ✅ Shared domain match utility for proof validation
+
+function _matchAllowedDomain(string memory url, mapping(string => bool) storage domainMap) internal view returns (bool) {
+    // Optional safety fallback: loop a reasonable sample of domains
+    string[4] memory fallbackDomains = ["binance.com", "coinbase.com", "certik.com", "trailofbits.com"];
+    for (uint256 i = 0; i < fallbackDomains.length; i++) {
+        if (domainMap[fallbackDomains[i]] && _contains(url, fallbackDomains[i])) {
+            return true;
+        }
+    }
+    return false;
+}
 
 }
 

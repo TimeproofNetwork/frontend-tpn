@@ -8,7 +8,9 @@ import TokenList from '@/app/components/TokenList';
 import TokenRegister from '@/app/components/TokenRegister';
 import Hero from '@/app/components/Hero';
 import SuggestionBox from '@/components/SuggestionBox';
-import RequestTPN from '@/components/RequestTPN';  // ✅ Added RequestTPN
+import RequestTPN from '@/components/RequestTPN';
+import HeaderDAOButton from '@/components/HeaderDAOButton'; // ✅ DAO button
+import StatusDot from '@/components/StatusDot'; // ✅ Registry dot
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -34,17 +36,22 @@ export default function Home() {
   return (
     <WagmiConfig client={wagmiClient}>
       <RainbowKitProvider chains={chains}>
-        <main className="min-h-screen bg-black text-white font-sans">
+        <main className="min-h-screen bg-black text-white font-sans relative">
+          {/* ✅ Top-right status dot */}
+          <StatusDot />
+
           <Hero />
 
-          <div className="flex justify-center mt-6">
+          {/* ✅ BOTH buttons side-by-side in center */}
+          <div className="flex justify-center mt-6 gap-4">
             <Link href="/intelligence" target="_blank">
               <button className="flex items-center gap-2 px-6 py-3 rounded-full bg-black border border-gray-700 text-white font-semibold shadow-md hover:shadow-lg hover:bg-gray-900 transition">
-                <Image src="/emblem.png" alt="Timeproof Network Red Blue Shield Emblem" width={20} height={20} />
-
+                <Image src="/emblem.png" alt="TPN Shield" width={20} height={20} />
                 TPN Intelligence Suite
               </button>
             </Link>
+
+            <HeaderDAOButton />
           </div>
 
           <section className="bg-[#0b0e14] text-white py-16 px-6">
@@ -77,17 +84,16 @@ export default function Home() {
           </section>
 
           <TokenRegister />
-
-          <RequestTPN />  {/* ✅ Added back as required */}
-
+          <RequestTPN />
           <TokenList />
-
           <SuggestionBox />
         </main>
       </RainbowKitProvider>
     </WagmiConfig>
   );
 }
+
+
 
 
 

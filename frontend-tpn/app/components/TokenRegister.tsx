@@ -16,6 +16,8 @@ import TokenRegistryAbi from "../../abi/TokenRegistry.json";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { AlertTriangle } from 'lucide-react';
 import CheckTPNBalance from "@/components/CheckTPNBalance";
+import sanitize from "../../utils/sanitizeInputs";
+
 
 const TPN_TOKEN = process.env.NEXT_PUBLIC_TPN_TOKEN as `0x${string}`;
 const BADGE_NFT = process.env.NEXT_PUBLIC_BADGE_NFT as `0x${string}`;
@@ -89,21 +91,51 @@ export default function TokenRegister() {
   };
 
   const handleRegister = async () => {
-    if (!isConnected) {
-      document.getElementById("wallet-trigger")?.click();
+  if (!isConnected) {
+    document.getElementById("wallet-trigger")?.click();
+    return;
+  }
+
+  try {
+    if (!signer) return alert("Wallet not connected.");
+    if (!name.trim() || !symbol.trim()) return alert("Name and Symbol are mandatory.");
+
+    if (!totalSupply || isNaN(Number(totalSupply)) || Number(totalSupply) <= 0) {
+      return alert("Please enter a valid total token supply.");
+    }
+
+    // ✅ Sanitize name and symbol
+    const cleanName = sanitize(name);
+    const cleanSymbol = sanitize(symbol);
+
+    // ✅ Reject if sanitized result is blank
+    if (!cleanName || !cleanSymbol) {
+      alert("❌ Token name and symbol are required.");
       return;
     }
 
-    try {
-      if (!signer) return alert("Wallet not connected.");
-      if (!name.trim() || !symbol.trim()) return alert("Name and Symbol are mandatory.");
-      if (!totalSupply || isNaN(Number(totalSupply)) || Number(totalSupply) <= 0) {
-        return alert("Please enter a valid total token supply.");
-      }
+    // ✅ Reject if sanitized length mismatches original (prevents contract Layer1 revert)
+    if (cleanName.length !== name.length || cleanSymbol.length !== symbol.length) {
+      alert("❌ Sanitized mismatch: Please remove emojis, spaces, or special characters.");
+      return;
+    }
+        // ✅ Debugging Output — Log sanitized and raw values before contract call
+    console.log("🚀 TPN Registration Debug Start");
+    console.log("🧾 Raw Name:", name);
+    console.log("🧾 Raw Symbol:", symbol);
+    console.log("🧼 Sanitized Name:", cleanName);
+    console.log("🧼 Sanitized Symbol:", cleanSymbol);
+    console.log("📏 Raw Name Length:", name.length, "| Sanitized:", cleanName.length);
+    console.log("📏 Raw Symbol Length:", symbol.length, "| Sanitized:", cleanSymbol.length);
+    console.log("🧮 Total Supply:", totalSupply);
+    console.log("📬 Proof 1:", proofExchange);
+    console.log("📬 Proof 2:", proofAudit);
+    console.log("💼 Signer Address:", await signer.getAddress());
+    console.log("💡 Proceeding to contract interaction...");
 
-      const cleanName = sanitize(name);
-      const cleanSymbol = sanitize(symbol);
 
+    // ✅ Proceed with contract interaction...
+    
       if (trustLevel === "2") {
         if (!proofExchange.trim()) {
           return alert("Level 2 requires Exchange Verification Link.");
@@ -280,7 +312,7 @@ export default function TokenRegister() {
             <div className="mt-2 bg-gray-900 p-3 rounded border border-gray-700 text-gray-300 leading-relaxed shadow">
               <p className="mb-2">1️⃣ Select <strong>Network</strong> → enable <strong>Show test networks</strong> → choose <strong>Sepolia</strong>.</p>
               <p className="mb-2">2️⃣ Click on <strong>Tokens</strong> → then the <strong>three dots</strong> → <strong>Import Tokens</strong>.</p>
-              <p className="mb-2">3️⃣ Paste this TPN Token Address:<br /><span className="break-all text-yellow-300">0xA9ddbBFa1D21330D646ae32AA2a64A46F7c05572</span></p>
+              <p className="mb-2">3️⃣ Paste this TPN Token Address:<br /><span className="break-all text-yellow-300">0xA7e3976928332e90DE144f6d4c6393B64E37bf6C</span></p>
               <p>4️⃣ Done! Your TPN balance will now appear in MetaMask.</p>
             </div>
           )}

@@ -2,7 +2,7 @@ require("@nomicfoundation/hardhat-toolbox");
 require("dotenv").config();
 
 const {
-  PRIVATE_KEY,
+  ADMIN_PRIVATE_KEY,     // ✅ Updated
   ZERO_TPN_KEY,
   SEPOLIA_RPC_URL,
   ETHERSCAN_API_KEY,
@@ -16,6 +16,7 @@ module.exports = {
         enabled: true,
         runs: 50,
       },
+      viaIR: true, // ✅ Enables IR-based compilation to fix stack too deep
     },
   },
   paths: {
@@ -28,7 +29,7 @@ module.exports = {
     sepolia: {
       url: SEPOLIA_RPC_URL,
       chainId: 11155111,
-      accounts: [PRIVATE_KEY, ZERO_TPN_KEY].filter(Boolean),
+      accounts: [ADMIN_PRIVATE_KEY, ZERO_TPN_KEY].filter(Boolean), // ✅ Uses admin
       timeout: 1000000,
       gasMultiplier: 1.5,
     },
@@ -37,6 +38,8 @@ module.exports = {
     apiKey: ETHERSCAN_API_KEY,
   },
 };
+
+
 
 
 

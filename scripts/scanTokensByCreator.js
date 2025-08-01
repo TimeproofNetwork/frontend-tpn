@@ -1,10 +1,10 @@
 const { ethers } = require("hardhat");
 
 // ✅ Final TokenRegistry address (update if needed)
-const TOKEN_REGISTRY = "0x92aCF7E58E8C65d0Aad3ed4B252c064737Ad9B52";
+const TOKEN_REGISTRY = "0x0c1Fd60957B5192cd1A31ae3407F3F8bB57A26a6";
 
 // ✅ Target creator wallet (checksummed or lowercase works)
-const CREATOR = "0xf681F78C269709019b5a8feAb96284760c148FE8".toLowerCase();
+const CREATOR = "0x0B7477072b7c06c1dcf4139DBA60A9f78B660719".toLowerCase();
 
 async function main() {
   const [deployer] = await ethers.getSigners();

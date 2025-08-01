@@ -1,44 +1,52 @@
 // scripts/simulateDAOBan.js
 
 const { ethers } = require("hardhat");
+const registryABI = require("../artifacts/contracts/TokenRegistry.sol/TokenRegistry.json").abi;
+const { sanitizeInput } = require("./sanitizeInputs");
+
+const registryAddress = "0x0c1Fd60957B5192cd1A31ae3407F3F8bB57A26a6";
+
+// 🛑 Tokens to ban
+const tokensToBan = [
+  { name: "SOLANAXPRESS", symbol: "slx" },
+  { name: "MAPLERESERVE", symbol: "mpr" }
+];
 
 async function main() {
-  const TPN_TOKEN = "0xA9ddbBFa1D21330D646ae32AA2a64A46F7c05572";
-  const BADGE_NFT = "0x0C163CA2bca11405e0973145159B39Ea4DB6C1b2";
-  const TOKEN_REGISTRY = "0x92aCF7E58E8C65d0Aad3ed4B252c064737Ad9B52";
-
-  // ✅ Final TokenRegistry
-
-  const Registry = await ethers.getContractAt("TokenRegistry", TOKEN_REGISTRY);
   const [dao] = await ethers.getSigners();
+  console.log(`🔐 Connected as DAO: ${dao.address}`);
 
-  console.log("🔐 Connected as DAO:", dao.address);
+  const Registry = await ethers.getContractAt("TokenRegistry", registryAddress, dao);
 
-  const TOKENS = [
-    { name: "bytefoundry", symbol: "byt" },
-    { name: "neuronspace", symbol: "nsp" },
-    { name: "fahamaynoor", symbol: "fmr" },
-    { name: "bilkisnaaz", symbol: "bkz" }
-  ];
+  for (const token of tokensToBan) {
+    console.log(`────────────────────────────────────────────`);
+    console.log(`⛔ Attempting DAO Ban for: ${token.name} (${token.symbol})`);
 
-  for (const token of TOKENS) {
+    const nameSanitized = sanitizeInput(token.name);
+    const symbolSanitized = sanitizeInput(token.symbol);
+
+    console.log(`🔤 Sanitized Name: ${nameSanitized}`);
+    console.log(`🔤 Sanitized Symbol: ${symbolSanitized}`);
+
     try {
-      // ⛔ Step: DAO Ban (no sanitization)
-      console.log(`⛔ Attempting DAO ban: ${token.name}`);
-      const tx = await Registry.daoBan(token.name, token.symbol, true);
+      const tx = await Registry.daoBan(nameSanitized, symbolSanitized, true);
       await tx.wait();
-      console.log(`✅ DAO ban successful for ${token.name}`);
+      console.log(`✅ DAO Ban successful for ${token.name} (${token.symbol})`);
     } catch (err) {
-      const reason = err?.error?.message || err?.reason || err.message || "Unknown error";
-      console.log(`❌ DAO ban failed for ${token.name}: ${reason}`);
+      const reason =
+        err?.error?.message || err?.reason || err?.data?.message || err.message || "Unknown error";
+      console.log(`❌ DAO Ban failed for ${token.name}: ${reason}`);
     }
   }
+
+  console.log(`🏁 DAO Ban script completed.`);
 }
 
 main().catch((error) => {
   console.error("❌ Script crashed:", error);
   process.exit(1);
 });
+
 
 
 

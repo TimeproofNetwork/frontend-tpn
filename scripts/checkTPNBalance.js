@@ -8,7 +8,7 @@ async function main() {
 
   const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
 
-  const TPN_TOKEN = "0x42fb85d1fF667Eb00bc8f52CC04baD7A7eAfD50e";  // Your TPN Token contract
+  const TPN_TOKEN = "0xA7e3976928332e90DE144f6d4c6393B64E37bf6C";  // Your TPN Token contract
   const abi = require("../frontend-tpn/utils/TPN_ABI.json");        // Reuse the same ABI
 
   const token = new ethers.Contract(TPN_TOKEN, abi, provider);

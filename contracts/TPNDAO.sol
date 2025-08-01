@@ -125,5 +125,55 @@ contract TPNDAO {
             z = (x / z + z) / 2;
         }
     }
+
+    // ════════════════════════════════════════
+    // ✅ Additions: Dynamic DAO Proposal Staking
+    // ════════════════════════════════════════
+
+    uint256 public requiredStake = 1000 * 10 ** 18;
+
+    function setRequiredStake(uint256 newStake) external onlyOwner {
+        requiredStake = newStake;
+    }
+
+    struct DAOTicket {
+        address proposer;
+        string category;
+        string message;
+        uint256 timestamp;
+    }
+
+    uint256 public ticketCounter;
+    mapping(uint256 => DAOTicket) public daoTickets;
+
+    event DAOTicketSubmitted(
+        uint256 indexed ticketId,
+        address indexed proposer,
+        string category,
+        string message,
+        uint256 timestamp
+    );
+
+    function submitDAOTicket(string memory category, string memory message) external {
+        require(bytes(category).length > 0, "Category required");
+        require(bytes(message).length > 0, "Message required");
+
+        // Burn or hold stake
+        require(
+            ITPNToken(tpnToken).transferFrom(msg.sender, address(this), requiredStake),
+            "Stake transfer failed"
+        );
+        ITPNToken(tpnToken).burn(requiredStake);
+
+        daoTickets[++ticketCounter] = DAOTicket({
+            proposer: msg.sender,
+            category: category,
+            message: message,
+            timestamp: block.timestamp
+        });
+
+        emit DAOTicketSubmitted(ticketCounter, msg.sender, category, message, block.timestamp);
+    }
 }
+
 

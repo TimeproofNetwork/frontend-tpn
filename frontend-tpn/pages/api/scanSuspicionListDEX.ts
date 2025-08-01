@@ -1,5 +1,3 @@
-// /pages/api/scanSuspicionListDEX.ts
-
 import type { NextApiRequest, NextApiResponse } from "next";
 import { ethers } from "ethers";
 import levenshtein from "fast-levenshtein";
@@ -8,8 +6,6 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const TPN_TOKEN = process.env.NEXT_PUBLIC_TPN_TOKEN as `0x${string}`;
-const BADGE_NFT = process.env.NEXT_PUBLIC_BADGE_NFT as `0x${string}`;
 const TOKEN_REGISTRY = process.env.NEXT_PUBLIC_TOKEN_REGISTRY as `0x${string}`;
 
 function sanitize(str: string): string {
@@ -50,7 +46,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ output: "❌ Token name and symbol are required!" });
   }
 
-  const rpc = process.env.SEPOLIA_RPC_URL;  // ✅ Fixed: Correct backend environment key
+  const rpc = process.env.SEPOLIA_RPC_URL;
   if (!rpc) {
     return res.status(500).json({ output: "❌ RPC URL missing from environment!" });
   }
@@ -64,13 +60,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const isSC = symbolSan.length <= 3;
 
   let tokens: any[] = [];
-try {
-  const rawTokens = await registry.getTokenLogbook();
-  tokens = rawTokens.map((token: any, index: number) => ({ ...token, index }));
-  tokens.sort((a: any, b: any) => a.timestamp - b.timestamp);  // ✅ Canonical sort
-} catch (err: any) {
-  return res.status(500).json({ output: `❌ Failed to fetch tokens from registry.\n${err.message || String(err)}` });
-}
+  try {
+    const rawTokens = await registry.getTokenLogbook();
+    tokens = rawTokens.map((token: any, index: number) => ({ ...token, index }));
+    tokens.sort((a: any, b: any) => a.timestamp - b.timestamp);
+  } catch (err: any) {
+    return res.status(500).json({ output: `❌ Failed to fetch tokens from registry.\n${err.message || String(err)}` });
+  }
 
   const inputIndex = tokens.findIndex(t => sanitize(t.name) === nameSan && sanitize(t.symbol) === symbolSan);
   const inputToken = inputIndex !== -1 ? tokens[inputIndex] : {
@@ -93,6 +89,20 @@ try {
   const trustIcons = ["⚫", "🟡", "🟢", "🟣"];
   const trustText = ["Level 0", "Level 1", "Level 2", "Level 3"];
 
+  const baseLines = [
+    `🔎 Scanning Token: ${rawName} (${rawSymbol})`,
+    `📦 Address: ${inputToken.tokenAddress}`,
+    `🧑 Creator: ${inputToken.registeredBy}`,
+    `📅 Registered: ${inputToken.timestamp ? new Date(inputToken.timestamp * 1000).toLocaleString("en-US") : "Unregistered"}`,
+    `🔒 Trust Level: ${trustIcons[trustLevel] || "⚫"} ${trustText[trustLevel] || "Level 0"}`
+  ];
+
+  // ✅ If DAO Banned (trustLevel 0) → Skip all suspicion logic
+  if (trustLevel === 0) {
+    baseLines.push(`☠️ Caution — Token is DAO Banned.`);
+    return res.status(200).json({ output: baseLines.join("\n") });
+  }
+
   const candidates = tokens.filter(t => {
     if (t.index === inputToken.index) return false;
     if (!t.timestamp || (inputToken.timestamp && t.timestamp >= inputToken.timestamp)) return false;
@@ -110,12 +120,22 @@ try {
   });
 
   if (candidates.length === 0) {
+    const isDAOBlocked = await registry.isDAOPunished(nameSan, symbolSan);
+  if (isDAOBlocked) {
     return res.status(200).json({
       output: [
         `🔎 Scanning Token: ${rawName} (${rawSymbol})`,
         `📦 Address: ${inputToken.tokenAddress}`,
         `🧑 Creator: ${inputToken.registeredBy}`,
         `📅 Registered: ${inputToken.timestamp ? new Date(inputToken.timestamp * 1000).toLocaleString("en-US") : "Unregistered"}`,
+        `🔒 Trust Level: ⚫ Level 0`,
+        `☠️ Caution — Token is DAO Banned.`
+      ].join("\n")
+    });
+  }
+    return res.status(200).json({
+      output: [
+        ...baseLines,
         `✅ No suspicious tokens found. Safe to proceed.`
       ].join("\n")
     });
@@ -151,12 +171,7 @@ try {
 
   const lastMember = all.reduce((latest, curr) => curr.timestamp > latest.timestamp ? curr : latest, all[0]);
 
-  const lines: string[] = [];
-  lines.push(`🔎 Scanning Token: ${rawName} (${rawSymbol})`);
-  lines.push(`📦 Address: ${inputToken.tokenAddress}`);
-  lines.push(`🧑 Creator: ${inputToken.registeredBy}`);
-  lines.push(`📅 Registered: ${inputToken.timestamp ? new Date(inputToken.timestamp * 1000).toLocaleString("en-US") : "Unregistered"}`);
-  lines.push(`🔒 Trust Level: ${trustIcons[trustLevel] || "⚫"} ${trustText[trustLevel] || "Level 0"}`);
+  const lines: string[] = [...baseLines];
   lines.push(`\n🧠 Suspicion Cluster Detected (${all.length} tokens)`);
   lines.push(`✅ Base Token: ${root.name} (${root.symbol}) | Registered at #${root.index}`);
   lines.push(inputDisplay);
@@ -166,6 +181,7 @@ try {
 
   return res.status(200).json({ output: lines.join("\n") });
 }
+
 
 
 

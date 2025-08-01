@@ -1,0 +1,14 @@
+{
+  "ranAt": 1753825241303,
+  "lines": [
+    "🔐 Using deployer: 0x6E118Ac0da2170697a4F942A0C509B29C59F698f",
+    "",
+    "🧼 Running Self-Heal Resilience (Clean Registry)...",
+    "⏳ Self-Heal Duration: 13.894s",
+    "✅ Self-Heal executed successfully",
+    "⛽ Gas Used: 25051",
+    "📜 Tx Hash: 0xef2b85de0f2065fb1ab61722e12fd00c0622978938e75833fe6b4d86158c8c48",
+    "📘 Result: No clones purged — registry logbook is clean."
+  ],
+  "ok": true
+}

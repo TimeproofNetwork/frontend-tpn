@@ -2,7 +2,7 @@ const { ethers } = require("hardhat");
 const { sanitizeName, sanitizeSymbol } = require("./sanitizeInputs");
 const top500 = require("./data/top500Tokens"); // Exports an array
 
-const TOKEN_REGISTRY = "0x92aCF7E58E8C65d0Aad3ed4B252c064737Ad9B52"; // Update if needed
+const TOKEN_REGISTRY = "0x0c1Fd60957B5192cd1A31ae3407F3F8bB57A26a6"; // Update if needed
 
 async function main() {
   const [deployer] = await ethers.getSigners();

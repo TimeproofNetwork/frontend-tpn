@@ -3,7 +3,7 @@
 const { ethers } = require("hardhat");
 
 // ✅ Final TokenRegistry address
-const TOKEN_REGISTRY = "0x92aCF7E58E8C65d0Aad3ed4B252c064737Ad9B52";
+const TOKEN_REGISTRY = "0x0c1Fd60957B5192cd1A31ae3407F3F8bB57A26a6";
 
 async function main() {
   const [deployer] = await ethers.getSigners();
@@ -22,3 +22,4 @@ main().catch((err) => {
   console.error("❌ Script Error:", err);
   process.exit(1);
 });
+

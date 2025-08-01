@@ -1,0 +1,91 @@
+[
+  {
+    "ticket": "S2",
+    "token": "0xca43c7629C6142d6F067318a03e712A39eB0f8eD",
+    "reason": "Rugpulls found",
+    "link1": "https://hacken.io/",
+    "requester": "0xca43c7629C6142d6F067318a03e712A39eB0f8eD",
+    "timestamp": 1753809407150,
+    "status": "open"
+  },
+  {
+    "id": "S#2",
+    "ticket": "S2",
+    "token": "0x0B7477072b7c06c1dcf4139DBA60A9f78B660719",
+    "reason": "Found rugpull behaviour",
+    "link1": "https://www.coinbase.com/en-in",
+    "requester": "0x6E118Ac0da2170697a4F942A0C509B29C59F698f",
+    "timestamp": 1753810539180,
+    "status": "open"
+  },
+  {
+    "id": "S#3",
+    "ticket": "S3",
+    "token": "0x6E118Ac0da2170697a4F942A0C509B29C59F698f",
+    "reason": "Need to check status of registry",
+    "link1": "https://www.coinbase.com/en-in",
+    "requester": "0x6E118Ac0da2170697a4F942A0C509B29C59F698f",
+    "timestamp": 1753811673194,
+    "status": "open"
+  },
+  {
+    "id": "S#4",
+    "ticket": "S1",
+    "token": "0x283aD31945D669250316F2e79D12Ae27b8662cc4",
+    "reason": "Have submitted proof 4 days ago, still not approved.",
+    "link1": "https://www.coinbase.com/en-in/hpsl",
+    "requester": "0xca43c7629C6142d6F067318a03e712A39eB0f8eD",
+    "timestamp": 1753816770054,
+    "status": "open"
+  },
+  {
+    "id": "S#5",
+    "ticket": "S2",
+    "token": "0x37f11967BfFAb482EF32B93F944180F7C3cE9Cac",
+    "reason": "Creator is sketchy , deploys multiple fake tokens.",
+    "link1": "https://arbitrum.io/mexlo",
+    "requester": "0xca43c7629C6142d6F067318a03e712A39eB0f8eD",
+    "timestamp": 1753817029904,
+    "status": "open"
+  },
+  {
+    "id": "S#6",
+    "ticket": "S4",
+    "token": "0xd13a33BCa1D23eE6c98A682796A7AC7b92967521",
+    "reason": "Should not be protected under Godzilla Layer, Make Token DAOBan.",
+    "link1": "https://www.avax.network/rail",
+    "requester": "0x4871b9850CAC768232Aebf71cB566747DA5b0e13",
+    "timestamp": 1753817802203,
+    "status": "open"
+  },
+  {
+    "id": "S#7",
+    "ticket": "S5",
+    "token": "0x4871b9850CAC768232Aebf71cB566747DA5b0e13",
+    "reason": "Link found in suspicious activity",
+    "link1": "https://hyperfoundation.org/pos",
+    "requester": "0x6E118Ac0da2170697a4F942A0C509B29C59F698f",
+    "timestamp": 1753872081533,
+    "status": "open"
+  },
+  {
+    "id": "S#8",
+    "ticket": "S3",
+    "token": "0x53ff31D7A97a1A06DfdCC36488569d9C9dD4916f",
+    "reason": "Self Heal is requested to check health status.",
+    "link1": "https://www.coinbase.com/en-in/testsimulationonly",
+    "requester": "0x6E118Ac0da2170697a4F942A0C509B29C59F698f",
+    "timestamp": 1753971777103,
+    "status": "open"
+  },
+  {
+    "id": "S#9",
+    "ticket": "S4",
+    "token": "0x524b25284f5811Ae9152a199861512aFb958B80b",
+    "reason": "Can be removed from Godzilla Layer Protection",
+    "link1": "https://x.com/GoDaddy?ref_src=twsrc%5Egoogle%7Ctwcamp%5Eserp%7Ctwgr%5Eauthor",
+    "requester": "0xCF7ce81a248993DAC3f95F9a2A80b8564e32E200",
+    "timestamp": 1754061857050,
+    "status": "open"
+  }
+]

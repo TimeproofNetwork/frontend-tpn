@@ -27,9 +27,9 @@ function computeVisualID(name, symbol) {
 
 async function main() {
   const registry = await ethers.getContractAt(
-    "TokenRegistry",
-    "0x92aCF7E58E8C65d0Aad3ed4B252c064737Ad9B52" // ✅ FINAL LOCKED TokenRegistry
-  );
+  "TokenRegistry",
+  "0x0c1Fd60957B5192cd1A31ae3407F3F8bB57A26a6" // ✅ FINAL LOCKED TokenRegistry
+);
 
   console.log(`\n🔍 Auditing Godzilla Ban – ${names.length} tokens from current batch...`);
 

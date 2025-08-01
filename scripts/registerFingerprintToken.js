@@ -1,20 +1,19 @@
-// scripts/registerTimeproofAttackTest.js
+// scripts/registerFreshFiveTokens.js
 
 const { ethers } = require("hardhat");
+const registryABI = require("../artifacts/contracts/TokenRegistry.sol/TokenRegistry.json").abi;
 
 // ✅ Final deployed addresses
-const TPN_TOKEN = "0xA9ddbBFa1D21330D646ae32AA2a64A46F7c05572";
-const BADGE_NFT = "0x0C163CA2bca11405e0973145159B39Ea4DB6C1b2";
-const TOKEN_REGISTRY = "0x92aCF7E58E8C65d0Aad3ed4B252c064737Ad9B52";
+const TPN_TOKEN = "0xA7e3976928332e90DE144f6d4c6393B64E37bf6C";
+const BADGE_NFT = "0x49A5f62fEb8ADd7323cc14a205a60608378c1D75";
+const TOKEN_REGISTRY = "0x0c1Fd60957B5192cd1A31ae3407F3F8bB57A26a6";
 
-// 🛡️ Timeproof Attack Test Tokens (Triggering SC Only)
+// 🆕 Fresh Test Tokens (Unicode + Clone Variants)
 const TOKENS = [
-  { name: "TimeproofNetv0rk", symbol: "TPN" },        // ✅ Root token
-  { name: "TimeproofNetvork", symbol: "TPN" },       // ✅ SC → vowel swap 'v'
-  { name: "T1meproofNetv0rk", symbol: "TPN" },       // ✅ LSIC → 'i' to '1'
-  { name: "TimeproofNetv0rks", symbol: "TPN" },      // ✅ LSIC → trailing 's'
-  { name: "TimeproofNetv0rk_", symbol: "TPN" },      // ✅ LSIC → trailing underscore
-  { name: "TimeproofNetvv0rk", symbol: "TPN" }       // ✅ SC → homoglyph 'w' → 'vv'
+  { name: "BitсoinPrime", symbol: "btc" },        // Cyrillic 'c'
+  { name: "SolanaXpress", symbol: "slx" },        // Solana imitation
+  { name: "ЕthеreumGlobal", symbol: "ethg" },     // Cyrillic 'E' + 'e'
+  { name: "BinаnceWorld", symbol: "bnbw" }        // Cyrillic 'a'
 ];
 
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
@@ -54,14 +53,16 @@ async function main() {
         t.name,
         t.symbol,
         deployed.address,
-        1
+        "",     // proof1 (empty)
+        ""      // proof2 (empty)
       );
 
       const tx = await Registry.registerToken(
         t.name,
         t.symbol,
         deployed.address,
-        1,
+        "",     // proof1
+        "",     // proof2
         {
           gasLimit: gasEstimate.add(ethers.BigNumber.from("100000")),
           maxFeePerGas: ethers.utils.parseUnits("30", "gwei"),
@@ -93,6 +94,8 @@ main().catch((error) => {
   console.error("❌ Script Failed:", error);
   process.exit(1);
 });
+
+
 
 
 

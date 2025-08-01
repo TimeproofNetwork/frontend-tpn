@@ -12,7 +12,6 @@ const TPN_TOKEN = process.env.NEXT_PUBLIC_TPN_TOKEN as `0x${string}`;
 const BADGE_NFT = process.env.NEXT_PUBLIC_BADGE_NFT as `0x${string}`;
 const TOKEN_REGISTRY = process.env.NEXT_PUBLIC_TOKEN_REGISTRY as `0x${string}`;
 
-
 function sanitize(str: string): string {
   return str.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
@@ -52,14 +51,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const unifiedInput = unified(name, symbol);
   const isSC = symbol.length <= 3;
 
-  const provider = new ethers.providers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);  // ✅ Fixed: Correct backend RPC key
+  const provider = new ethers.providers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);
   const registry = new ethers.Contract(TOKEN_REGISTRY, TokenRegistryAbi.abi, provider);
 
   const rawTokens = await registry.getTokenLogbook();
   const tokens = rawTokens.map((token: any, index: number) => ({ ...token, index }));
   tokens.sort((a: any, b: any) => a.timestamp - b.timestamp);
- // ✅ Canonical CIS ordering
-
 
   const inputIndex = tokens.findIndex((t: any) => unified(t.name, t.symbol) === unifiedInput);
   const isRegistered = inputIndex !== -1;
@@ -83,6 +80,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   } catch (_) {}
 
   const trustEmoji = trustLevel === 3 ? "🟣" : trustLevel === 2 ? "🟢" : trustLevel === 1 ? "🟡" : "⚫";
+
+  const lines: string[] = [];
+  lines.push(`🔎 Scanning Token: ${rawName} (${rawSymbol})`);
+  lines.push(`📦 Address: ${input.tokenAddress}`);
+  lines.push(`🧑 Creator: ${input.registeredBy}`);
+  if (input.timestamp) lines.push(`📅 Registered: ${new Date(Number(input.timestamp) * 1000).toLocaleString("en-US")}`);
+  lines.push(`🔒 Trust Level: ${trustEmoji} Level ${trustLevel}`);
+
+  // ✅ DAO Ban: trustLevel === 0
+  if (trustLevel === 0) {
+    lines.push(`📊 Estimated Trust Score: 0/100`);
+    lines.push(`⚫️ Caution — Token is DAO Banned.`);
+    return res.status(200).json({ output: lines.join("\n") });
+  }
 
   const candidates = tokens.filter((t: any) => {
     if (t.index === input.index) return false;
@@ -143,11 +154,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const trustBonus = trustLevel === 3 ? 50 : trustLevel === 2 ? 40 : trustLevel === 1 ? 10 : 0;
   let score = 50;
   const isBase =
-  clusterIndices.length === 0 ||
-  (baseIndex !== -1 && (
-    unified(tokens[baseIndex].name, tokens[baseIndex].symbol) === unifiedInput ||
-    (isRegistered && baseIndex === inputIndex)
-  ));
+    clusterIndices.length === 0 ||
+    (baseIndex !== -1 && (
+      unified(tokens[baseIndex].name, tokens[baseIndex].symbol) === unifiedInput ||
+      (isRegistered && baseIndex === inputIndex)
+    ));
 
   if (clusterIndices.length === 0 || isBase) {
     score += trustBonus;
@@ -158,12 +169,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   score = Math.max(0, score);
 
-  const lines: string[] = [];
-  lines.push(`🔎 Scanning Token: ${rawName} (${rawSymbol})`);
-  lines.push(`📦 Address: ${input.tokenAddress}`);
-  lines.push(`🧑 Creator: ${input.registeredBy}`);
-  if (input.timestamp) lines.push(`📅 Registered: ${new Date(Number(input.timestamp) * 1000).toLocaleString("en-US")}`);
-  lines.push(`🔒 Trust Level: ${trustEmoji} Level ${trustLevel}`);
   if (clusterOutput) lines.push(clusterOutput.trim());
   lines.push(`📊 Estimated Trust Score: ${score}/100`);
 
@@ -181,6 +186,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   return res.status(200).json({ output: lines.join("\n") });
 }
+
 
 
 
