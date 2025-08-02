@@ -173,7 +173,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         crs: crs.toFixed(2),
       };
     })
-    .filter(entry => entry.clusterCount > 0 && entry.clusterContribution > 1)
+    .filter(entry => entry.clusterCount > 0) // ✅ FIXED: include contribution >= 1
     .sort((a, b) => Number(b.crs) - Number(a.crs));
 
   lines.push(`\n🔎 Identified ${clusters.length} suspicion clusters.`);
@@ -194,6 +194,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   return res.status(200).json({ output: lines.join("\n") });
 }
+
 
 
 

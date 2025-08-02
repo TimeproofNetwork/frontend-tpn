@@ -1,22 +1,25 @@
 {
-  "ranAt": 1753990217153,
+  "ranAt": 1754135204710,
   "lines": [
     "🔒 Starting Godzilla Ban Update...",
     "🧾 Registry Address: 0x0c1Fd60957B5192cd1A31ae3407F3F8bB57A26a6",
     "🚀 Caller: 0x6E118Ac0da2170697a4F942A0C509B29C59F698f",
     "✅ Fetched 500 tokens.",
-    "⎩ Batch 1 skipped (all already banned or invalid).",
+    "📦 Sending batch 1: 0 to 0",
+    "🔗 TX submitted: 0x4506bee589c0e8ca57beb589331de5cd0009f3125545a0269e34480b07398b50",
+    "✅ Batch 1 confirmed in block 8896360.",
     "⎩ Batch 2 skipped (all already banned or invalid).",
     "⎩ Batch 3 skipped (all already banned or invalid).",
     "⎩ Batch 4 skipped (all already banned or invalid).",
-    "📦 Sending batch 5: 400 to 401",
-    "🔗 TX submitted: 0xc25d0c33d9ef31b06f8084c0bf19cc4f81ec3a014e86587cfa5a8beabbfe0a01",
-    "✅ Batch 5 confirmed in block 8884458.",
+    "📦 Sending batch 5: 400 to 403",
+    "🔗 TX submitted: 0x1c1b3c82148c98b4a23a62f34be44ea2c2041f2d42ce6de099712aea9ab450c4",
+    "✅ Batch 5 confirmed in block 8896370.",
     "🛡️ Godzilla ban list update complete."
   ],
-  "output": "Godzilla ban update complete: 1 batch(es) sent, 2 pair(s) banned, 500 checked.",
+  "output": "Godzilla ban update complete: 2 batch(es) sent, 5 pair(s) banned, 500 checked.",
   "success": true,
   "txHashes": [
-    "0xc25d0c33d9ef31b06f8084c0bf19cc4f81ec3a014e86587cfa5a8beabbfe0a01"
+    "0x4506bee589c0e8ca57beb589331de5cd0009f3125545a0269e34480b07398b50",
+    "0x1c1b3c82148c98b4a23a62f34be44ea2c2041f2d42ce6de099712aea9ab450c4"
   ]
 }

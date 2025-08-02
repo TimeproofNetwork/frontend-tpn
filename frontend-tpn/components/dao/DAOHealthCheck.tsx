@@ -1,19 +1,21 @@
+// app/components/dao/DAOHealthCheck.tsx
+
 "use client";
 
 import { useEffect, useState } from "react";
 
 interface SelfHealReport {
-  ranAt: number;           // Timestamp when script ran
-  duration?: string;       // ⏱️ Duration string (e.g., "1.2s")
-  ok?: boolean;            // ✅ Success flag
-  lines: string[];         // 📜 Output lines
+  ranAt: number;
+  duration?: string;
+  ok?: boolean;
+  lines: string[];
 }
 
 interface GodzillaReport {
-  ranAt?: number;         // ✅ Timestamp of execution
-  lines: string[];        // ✅ Output lines
-  output?: string;        // (optional) any summary output
-  success?: boolean;      // (optional) execution status
+  ranAt?: number;
+  lines: string[];
+  output?: string;
+  success?: boolean;
 }
 
 export default function DAOHealthCheck() {
@@ -28,7 +30,6 @@ export default function DAOHealthCheck() {
         setSelfHeal(j1?.report ?? null);
 
         const res2 = await fetch("/api/dao/get-godzilla-ban-update");
-
         const j2 = await res2.json();
         setGodzilla(j2?.report ?? null);
       } catch (err) {
@@ -41,7 +42,7 @@ export default function DAOHealthCheck() {
 
   return (
     <div className="space-y-8">
-      {/* DAO Health Check */}
+      {/* 🛡️ DAO Health Check */}
       <div className="bg-gray-900 p-6 rounded-xl shadow-md border border-gray-700">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-semibold mb-4 flex items-center">
@@ -65,13 +66,15 @@ export default function DAOHealthCheck() {
         <div className="mt-4 bg-black/40 border border-gray-800 rounded p-4 text-green-400 text-sm font-mono whitespace-pre-wrap">
           {!selfHeal ? (
             <div className="text-gray-400">⏳ Loading Self-Heal Report...</div>
-          ) : (
+          ) : selfHeal.lines?.length > 0 ? (
             selfHeal.lines.join("\n")
+          ) : (
+            <div className="text-gray-400">⚠️ No output found.</div>
           )}
         </div>
       </div>
 
-      {/* Godzilla Ban Update */}
+      {/* 🛡️ Godzilla Ban Update */}
       <div className="bg-gray-900 p-6 rounded-xl shadow-md border border-gray-700">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-semibold mb-4 flex items-center">
@@ -89,20 +92,23 @@ export default function DAOHealthCheck() {
 
         <div className="text-sm text-gray-400 mb-2">
           Last run:{" "}
-          {godzilla?.ranAt? new Date(godzilla.ranAt).toLocaleString() : "—"}
-       </div>
+          {godzilla?.ranAt ? new Date(godzilla.ranAt).toLocaleString() : "—"}
+        </div>
 
         <div className="mt-4 bg-black/40 border border-gray-800 rounded p-4 text-green-400 text-sm font-mono whitespace-pre-wrap">
           {!godzilla ? (
             <div className="text-gray-400">⏳ Loading Godzilla Ban Report...</div>
-          ) : (
+          ) : godzilla.lines?.length > 0 ? (
             godzilla.lines.join("\n")
+          ) : (
+            <div className="text-gray-400">⚠️ No output found.</div>
           )}
         </div>
       </div>
     </div>
   );
 }
+
 
 
 
