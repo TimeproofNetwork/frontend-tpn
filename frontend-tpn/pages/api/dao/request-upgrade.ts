@@ -1,9 +1,12 @@
-// /pages/api/dao/request-upgrade.ts
-
 import type { NextApiRequest, NextApiResponse } from "next";
-import fs from "fs";
-import path from "path";
 import axios from "axios";
+import { createClient } from "@supabase/supabase-js";
+
+// Supabase client
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 // Fallback sanitize function
 function sanitize(str: string): string {
@@ -16,7 +19,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const body = req.body;
     const {
       type,
       name,
@@ -25,12 +27,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       creator,
       proof1,
       proof2
-    } = body;
+    } = req.body;
 
     const requestedLevel =
-      typeof body.requestedLevel === "number"
-        ? body.requestedLevel
-        : Number(body.requestedLevel);
+      typeof req.body.requestedLevel === "number"
+        ? req.body.requestedLevel
+        : Number(req.body.requestedLevel);
 
     // Basic validation
     if (
@@ -50,17 +52,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: "❌ Missing required fields" });
     }
 
-    // ✅ Safe URL fallback (handles Vercel + local)
+    // Safe fallback for base URL
     const baseUrl = req.headers.origin || "http://localhost:3000";
 
-    // 🧠 STEP 1: Call getTokenInfo to verify registry details
+    // STEP 1: Call getTokenInfo
     const verifyRes = await axios.post(`${baseUrl}/api/dao/getTokenInfo`, {
       tokenAddress
     });
 
     const verified = verifyRes.data;
 
-    // 🧪 STEP 2: Print fingerprint debug info
+    // STEP 2: Debug
     console.log("🎯 Fingerprint Debug", {
       input: {
         name: sanitize(name),
@@ -76,7 +78,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     });
 
-    // 🔐 STEP 3: Block submission if fingerprint mismatch
+    // STEP 3: Fingerprint mismatch check
     if (
       sanitize(name) !== sanitize(verified.name) ||
       sanitize(symbol) !== sanitize(verified.symbol) ||
@@ -86,12 +88,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: "❌ Fingerprint mismatch. Submission rejected." });
     }
 
-    // 📝 STEP 4: Proceed to save ticket
-    const filePath = path.join(process.cwd(), "data", "dao-tickets.json");
-    const fileRaw = fs.readFileSync(filePath, "utf-8");
-    const allTickets = JSON.parse(fileRaw);
+    // STEP 4: Save to Supabase (E-type tickets only)
+    const { count, error: countErr } = await supabase
+      .from("dao_tickets")
+      .select("*", { count: "exact", head: true })
+      .eq("type", "E");
 
-    const ticketNumber = allTickets.filter((t: any) => t.type === "E").length + 1;
+    if (countErr) {
+      console.error("❌ Supabase count error:", countErr);
+      return res.status(500).json({ error: "Error while counting tickets." });
+    }
+
+    const ticketNumber = (count ?? 0) + 1;
     const submitted = new Date().toISOString();
 
     const newTicket = {
@@ -109,8 +117,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       submitted
     };
 
-    allTickets.push(newTicket);
-    fs.writeFileSync(filePath, JSON.stringify(allTickets, null, 2), "utf-8");
+    const { error: insertErr } = await supabase
+      .from("dao_tickets")
+      .insert([newTicket]);
+
+    if (insertErr) {
+      console.error("❌ Supabase insert error:", insertErr);
+      return res.status(500).json({ error: "Failed to save ticket." });
+    }
 
     return res.status(200).json({
       message: "✅ Upgrade request submitted",
@@ -122,6 +136,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: "❌ Internal Server Error" });
   }
 }
+
 
 
 
