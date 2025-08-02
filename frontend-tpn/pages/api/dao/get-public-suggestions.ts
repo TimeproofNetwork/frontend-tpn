@@ -1,7 +1,7 @@
 // pages/api/dao/get-public-suggestions.ts
+
 import type { NextApiRequest, NextApiResponse } from "next";
-import fs from "fs";
-import path from "path";
+import { createClient } from "@supabase/supabase-js";
 
 type SuggestionStatus = "open" | "closed-approved" | "closed-rejected";
 
@@ -17,20 +17,28 @@ type Suggestion = {
   status?: SuggestionStatus;
 };
 
-const DB_PATH = path.join(process.cwd(), "data", "public-suggestions.json");
+// 🔗 Supabase client
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
   try {
-    if (!fs.existsSync(DB_PATH)) {
-      return res.status(200).json({ success: true, suggestions: [], count: 0 });
+    const { data, error } = await supabase
+      .from("public_suggestions")
+      .select("*");
+
+    if (error) {
+      console.error("❌ Supabase fetch error:", error.message);
+      return res.status(500).json({ error: "Failed to fetch from Supabase" });
     }
 
-    const raw = fs.readFileSync(DB_PATH, "utf-8");
-    const list: Suggestion[] = JSON.parse(raw || "[]");
+    const list: Suggestion[] = data ?? [];
 
     // Sort: open first, then by timestamp desc
     const sorted = [...list].sort((a, b) => {
@@ -49,9 +57,11 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
       success: true,
       count: sorted.length,
       suggestions: sorted,
-      updatedAt: Date.now(),
+      updatedAt: Date.now()
     });
+
   } catch (err: any) {
     return res.status(500).json({ error: err?.message || "Failed to read suggestions" });
   }
 }
+
