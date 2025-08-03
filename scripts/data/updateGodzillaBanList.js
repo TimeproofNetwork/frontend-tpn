@@ -125,13 +125,13 @@ async function main() {
   report.lines.push("🛡️ Godzilla ban list update complete.");
   report.lines = report.lines.slice(-50); // Trim
 
-  // ✅ Push to Supabase
+  // ✅ Push to Supabase (correct column names)
   const { error } = await supabase.from("godzilla_ban_logs").insert([{
     ran_at: report.ranAt,
-    tx_hash: report.txHashes.slice(-1)[0] || null,
+    tx_hashes: report.txHashes,        // ✅ fixed: plural form
     output: report.output,
     success: report.success,
-    lines: report.lines // ✅ PATCHED: correct field
+    lines: report.lines
   }]);
 
   if (error) {
@@ -145,6 +145,7 @@ main().catch(err => {
   console.error("💥 Script failed:", err.message);
   process.exit(1);
 });
+
 
 
 
