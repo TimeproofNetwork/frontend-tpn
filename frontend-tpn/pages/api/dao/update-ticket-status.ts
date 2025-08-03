@@ -1,10 +1,14 @@
+// /pages/api/dao/update-ticket-status.ts
+
 import { NextApiRequest, NextApiResponse } from "next";
-import fs from "fs";
-import path from "path";
+import { createClient } from "@supabase/supabase-js";
 
-const TICKETS_PATH = path.join(process.cwd(), "data", "dao-tickets.json");
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -15,27 +19,32 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(400).json({ error: "Missing or invalid id/status" });
   }
 
-  try {
-    const raw = fs.readFileSync(TICKETS_PATH, "utf-8");
-    const tickets = JSON.parse(raw);
+  const newStatus = status === "approved" ? "Closed - Approved" : "Closed - Rejected";
+  const decisionTimestamp = new Date().toISOString();
 
-    const index = tickets.findIndex((t: any) => t.id === id);
-    if (index === -1) {
-      return res.status(404).json({ error: "Ticket not found" });
+  try {
+    // 🛠️ Update the ticket by ID
+    const { data, error } = await supabase
+      .from("dao_tickets")
+      .update({
+        status: newStatus,
+        decisionTimestamp
+      })
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("❌ Supabase update error:", error);
+      return res.status(500).json({ error: "Failed to update ticket" });
     }
 
-    // 🕒 Update status and decisionTimestamp
-    tickets[index].status =
-      status === "approved" ? "Closed - Approved" : "Closed - Rejected";
-    tickets[index].decisionTimestamp = new Date().toISOString();
-
-    fs.writeFileSync(TICKETS_PATH, JSON.stringify(tickets, null, 2));
-    console.log(`📝 Ticket ${id} marked as ${tickets[index].status}`);
-
-    return res.status(200).json({ success: true, updatedTicket: tickets[index] });
-  } catch (err: any) {
-    console.error("❌ Failed to update ticket:", err);
+    console.log(`📝 Ticket ${id} marked as ${newStatus}`);
+    return res.status(200).json({ success: true, updatedTicket: data });
+  } catch (err) {
+    console.error("❌ Unexpected error:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 }
+
 

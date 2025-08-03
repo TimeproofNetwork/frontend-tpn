@@ -1,4 +1,3 @@
-// frontend-tpn/components/dao/DAOInboxSuggestions.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -7,9 +6,9 @@ import axios from "axios";
 type SuggestionStatus = "open" | "closed-approved" | "closed-rejected";
 
 interface Suggestion {
-  id?: string;            // e.g., "S#3"
-  ticket: string;         // S1..S5
-  token: string;          // address (token or creator)
+  id?: string;                 // e.g., "S#9"
+  ticket: string;             // e.g., "S4"
+  token: string;
   reason: string;
   link1?: string;
   link2?: string;
@@ -29,6 +28,13 @@ const TICKET_LABELS: Record<string, string> = {
 function fmtAddr(addr?: string) {
   if (!addr || addr.length < 10) return addr || "—";
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+}
+
+function compressLabel(label?: string) {
+  if (!label) return "";
+  const parts = label.split(" ").filter(Boolean);
+  if (parts.length < 2) return label;
+  return `${parts[0]}…${parts[parts.length - 1]}`;
 }
 
 function StatusBadge({ status }: { status?: SuggestionStatus }) {
@@ -61,7 +67,13 @@ export default function DAOInboxSuggestions() {
     try {
       setLoading(true);
       const res = await axios.get("/api/dao/get-public-suggestions");
-      setSuggestions(res.data?.suggestions || []);
+      const raw = res.data?.suggestions || [];
+
+      const sorted = raw.sort(
+        (a: Suggestion, b: Suggestion) => (b.timestamp ?? 0) - (a.timestamp ?? 0)
+      );
+
+      setSuggestions(sorted);
     } catch (err) {
       console.error("❌ Failed to fetch suggestions:", err);
     } finally {
@@ -89,21 +101,27 @@ export default function DAOInboxSuggestions() {
       ) : suggestions.length === 0 ? (
         <p className="text-gray-400 text-sm">No suggestions received yet.</p>
       ) : (
-        // 🔽 Fixed-height scrollable area (matches DAO Ticket Inbox behavior)
         <div className="space-y-4 max-h-[560px] overflow-y-auto pr-2">
-          {suggestions.map((sug, idx) => {
-            const idLabel = sug.id ?? `S#${idx + 1}`;
-            const category = TICKET_LABELS[sug.ticket] ?? sug.ticket;
-            const submitted =
-              sug.timestamp ? new Date(sug.timestamp).toLocaleString() : "—";
+          {suggestions.map((sug) => {
+            const idDisplay = sug.id || "S#?";
+            const ticketCode = sug.ticket;
+            const fullLabel = TICKET_LABELS[ticketCode];
+            const compressed = compressLabel(fullLabel);
+            const submitted = sug.timestamp
+              ? new Date(sug.timestamp).toLocaleString()
+              : "—";
+
             return (
               <div
-                key={`${sug.id || idx}-${sug.token}`}
+                key={`${idDisplay}-${sug.token}`}
                 className="bg-black border border-gray-700 rounded p-4 text-sm text-white"
               >
                 <div className="flex items-center justify-between mb-1">
-                  <p className="font-semibold">
-                    📌 {idLabel} — {category}
+                  <p className="font-semibold flex items-center gap-2">
+                    <span className="font-mono text-purple-400">{idDisplay}</span>
+                    <span className="text-gray-400">
+                      {ticketCode ? `— ${ticketCode}: ${compressed}` : ""}
+                    </span>
                     <StatusBadge status={sug.status} />
                   </p>
                 </div>
@@ -161,6 +179,9 @@ export default function DAOInboxSuggestions() {
     </div>
   );
 }
+
+
+
 
 
 
