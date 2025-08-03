@@ -1,60 +1,65 @@
-// pages/api/dao/get-self-heal-report.ts
-
 import type { NextApiRequest, NextApiResponse } from "next";
-import path from "path";
-import fs from "fs";
+import { createClient } from "@supabase/supabase-js";
 
+// ✅ Type declaration
 interface SelfHealReport {
   ok?: boolean;
   ranAt?: number;
   lines: string[];
+  message?: string;
 }
 
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
-  // ✅ Only GET allowed now — POST removed to block live execution
+// ✅ Supabase client
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // ✅ Only allow GET requests
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method Not Allowed" });
   }
 
-  const filePath = path.join(process.cwd(), "data", "self-heal-report.json");
-
   try {
-    if (!fs.existsSync(filePath)) {
+    const { data, error } = await supabase
+      .from("self_heal_logs")
+      .select("*")
+      .order("ranAt", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error || !data) {
       return res.status(200).json({
         report: {
           lines: [],
           ranAt: undefined,
           ok: false,
           message: "No self-heal report found.",
-        },
+        } as SelfHealReport,
       });
     }
 
-    const raw = fs.readFileSync(filePath, "utf-8").trim();
-    if (!raw) {
-      return res.status(200).json({
-        report: {
-          lines: [],
-          ranAt: undefined,
-          ok: false,
-          message: "Self-heal report file is empty.",
-        },
-      });
-    }
+    const report: SelfHealReport = {
+      ok: data.ok ?? false,
+      ranAt: data.ranAt ?? undefined,
+      lines: data.lines ?? [],
+      message: data.message ?? undefined,
+    };
 
-    const report: SelfHealReport = JSON.parse(raw);
     return res.status(200).json({ report });
   } catch (err: any) {
-    console.error("❌ Failed to load self-heal report:", err);
+    console.error("❌ Failed to fetch self-heal report from Supabase:", err);
     return res.status(500).json({
       report: {
-        lines: [`❌ Error: ${err?.message || "Failed to parse self-heal report."}`],
+        lines: [`❌ Error: ${err?.message || "Failed to load self-heal report."}`],
         ranAt: undefined,
         ok: false,
-      },
+      } as SelfHealReport,
     });
   }
 }
+
 
 
 

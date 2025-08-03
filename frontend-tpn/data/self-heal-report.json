@@ -1,15 +1,15 @@
 {
-  "ranAt": 1754135257953,
-  "duration": "14.546s",
+  "ranAt": 1754224850886,
+  "duration": "14.488s",
   "ok": true,
   "lines": [
     "🔐 Using deployer: 0x6E118Ac0da2170697a4F942A0C509B29C59F698f",
     "",
     "🧼 Running Self–Heal Resilience (Clean Registry)...",
     "✅ Self–Heal executed successfully",
-    "⏳ Duration: 14.546s",
+    "⏳ Duration: 14.488s",
     "⛽ Gas Used: 25051",
-    "📜 Tx Hash: 0x314d28ed671dc48b352ab2e36bd870d12b398382fe81ce1b0b9deafc4a2bd3f0",
+    "📜 Tx Hash: 0xe6e44eda691e58254de37d89522a0748af801f93d5de901161f25c3d8507e668",
     "📘 Result: No clones purged — registry logbook is clean."
   ]
 }

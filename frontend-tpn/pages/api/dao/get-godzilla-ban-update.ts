@@ -1,35 +1,36 @@
-// pages/api/dao/get-godzilla-ban-update.ts
 import type { NextApiRequest, NextApiResponse } from "next";
-import fs from "fs";
-import path from "path";
+import { createClient } from "@supabase/supabase-js";
 
 interface GodzillaReport {
-  // canonical fields written by the writer
   success?: boolean;
   ranAt?: number;
   lines: string[];
   output?: string;
   txHashes?: string[];
-  // legacy for backward-compat
-  ok?: boolean;
+  ok?: boolean; // legacy fallback
 }
 
-function getReportPath(): string {
-  // If this API route is inside the frontend app, cwd() is the app root.
-  // The file lives at ./data/godzilla-ban.json
-  return path.join(process.cwd(), "data", "godzilla-ban.json");
-}
+// ✅ Supabase client
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
-  // ✅ Lock to GET only
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // ✅ Lock to GET
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method Not Allowed" });
   }
 
-  const filePath = getReportPath();
-
   try {
-    if (!fs.existsSync(filePath)) {
+    const { data, error } = await supabase
+      .from("godzilla_ban_logs")
+      .select("*")
+      .order("ranAt", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error || !data) {
       const empty: GodzillaReport = {
         success: false,
         ranAt: undefined,
@@ -40,32 +41,17 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(200).json({ report: empty });
     }
 
-    const raw = fs.readFileSync(filePath, "utf-8").trim();
-    if (!raw) {
-      const empty: GodzillaReport = {
-        success: false,
-        ranAt: undefined,
-        lines: [],
-        output: "Godzilla report file is empty.",
-        txHashes: [],
-      };
-      return res.status(200).json({ report: empty });
-    }
-
-    const data = JSON.parse(raw) as GodzillaReport;
-
-    // ✅ Normalize to canonical keys for the UI
-    const normalized: GodzillaReport = {
+    const report: GodzillaReport = {
       success: data.success ?? data.ok ?? false,
-      ranAt: data.ranAt,
+      ranAt: data.ranAt ?? undefined,
       lines: Array.isArray(data.lines) ? data.lines : [],
-      output: data.output,
+      output: data.output ?? undefined,
       txHashes: Array.isArray(data.txHashes) ? data.txHashes : [],
     };
 
-    return res.status(200).json({ report: normalized });
+    return res.status(200).json({ report });
   } catch (err: any) {
-    console.error("❌ Error reading Godzilla ban report:", err);
+    console.error("❌ Supabase error reading Godzilla ban report:", err);
     const failure: GodzillaReport = {
       success: false,
       ranAt: undefined,
@@ -76,6 +62,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(500).json({ report: failure });
   }
 }
+
 
 
 
