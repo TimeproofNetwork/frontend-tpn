@@ -1,21 +1,23 @@
-// app/components/dao/DAOHealthCheck.tsx
-
 "use client";
 
 import { useEffect, useState } from "react";
 
 interface SelfHealReport {
-  ranAt: number;
+  ran_at?: string | number;
   duration?: string;
   ok?: boolean;
+  gas_used?: string;
+  tx_hash?: string;
+  result_line?: string;
   lines: string[];
 }
 
 interface GodzillaReport {
-  ranAt?: number;
+  ran_at?: string | number;
   lines: string[];
   output?: string;
   success?: boolean;
+  tx_hashes?: string[];
 }
 
 export default function DAOHealthCheck() {
@@ -40,6 +42,17 @@ export default function DAOHealthCheck() {
     fetchReports();
   }, []);
 
+  const formatDate = (dt?: string | number) => {
+  try {
+    if (!dt) return "—";
+    const parsed = typeof dt === "string" ? Date.parse(dt) : dt;
+    const d = new Date(parsed);
+    return isNaN(d.getTime()) ? "—" : d.toLocaleString();
+  } catch {
+    return "—";
+  }
+};
+
   return (
     <div className="space-y-8">
       {/* 🛡️ DAO Health Check */}
@@ -51,7 +64,7 @@ export default function DAOHealthCheck() {
               alt="TPN"
               className="w-[1.15em] h-[1.15em] mr-2"
             />
-            DAO Health Check
+            DAO Self Heal
           </h3>
         </div>
         <p className="text-zinc-400 text-sm mb-2">
@@ -59,8 +72,7 @@ export default function DAOHealthCheck() {
         </p>
 
         <div className="text-sm text-gray-400 mb-2">
-          Last checked:{" "}
-          {selfHeal?.ranAt ? new Date(selfHeal.ranAt).toLocaleString() : "—"}
+          Last Heal: {formatDate(selfHeal?.ran_at)}
         </div>
 
         <div className="mt-4 bg-black/40 border border-gray-800 rounded p-4 text-green-400 text-sm font-mono whitespace-pre-wrap">
@@ -91,8 +103,7 @@ export default function DAOHealthCheck() {
         </p>
 
         <div className="text-sm text-gray-400 mb-2">
-          Last run:{" "}
-          {godzilla?.ranAt ? new Date(godzilla.ranAt).toLocaleString() : "—"}
+          Last Ban: {formatDate(godzilla?.ran_at)}
         </div>
 
         <div className="mt-4 bg-black/40 border border-gray-800 rounded p-4 text-green-400 text-sm font-mono whitespace-pre-wrap">
@@ -108,6 +119,8 @@ export default function DAOHealthCheck() {
     </div>
   );
 }
+
+
 
 
 

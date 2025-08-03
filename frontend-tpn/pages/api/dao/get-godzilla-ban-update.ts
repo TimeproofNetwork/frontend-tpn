@@ -1,13 +1,14 @@
+// pages/api/dao/get-godzilla-ban-update.ts
+
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createClient } from "@supabase/supabase-js";
 
 interface GodzillaReport {
   success?: boolean;
-  ranAt?: number;
+  ran_at?: string;              // ✅ Use exact Supabase column name
   lines: string[];
   output?: string;
-  txHashes?: string[];
-  ok?: boolean; // legacy fallback
+  tx_hashes?: string[];         // ✅ Snake_case for 1:1 DB match
 }
 
 // ✅ Supabase client
@@ -17,7 +18,6 @@ const supabase = createClient(
 );
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // ✅ Lock to GET
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method Not Allowed" });
   }
@@ -26,27 +26,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { data, error } = await supabase
       .from("godzilla_ban_logs")
       .select("*")
-      .order("ranAt", { ascending: false })
+      .order("ran_at", { ascending: false })
       .limit(1)
       .single();
 
     if (error || !data) {
       const empty: GodzillaReport = {
         success: false,
-        ranAt: undefined,
+        ran_at: undefined,
         lines: [],
         output: "No Godzilla report found yet.",
-        txHashes: [],
+        tx_hashes: [],
       };
       return res.status(200).json({ report: empty });
     }
 
     const report: GodzillaReport = {
       success: data.success ?? data.ok ?? false,
-      ranAt: data.ranAt ?? undefined,
+      ran_at: data.ran_at ?? undefined,
       lines: Array.isArray(data.lines) ? data.lines : [],
       output: data.output ?? undefined,
-      txHashes: Array.isArray(data.txHashes) ? data.txHashes : [],
+      tx_hashes: Array.isArray(data.tx_hashes) ? data.tx_hashes : [],
     };
 
     return res.status(200).json({ report });
@@ -54,14 +54,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.error("❌ Supabase error reading Godzilla ban report:", err);
     const failure: GodzillaReport = {
       success: false,
-      ranAt: undefined,
+      ran_at: undefined,
       lines: [`❌ Error: ${err?.message || "Failed to read godzilla-ban report."}`],
       output: "Read error.",
-      txHashes: [],
+      tx_hashes: [],
     };
     return res.status(500).json({ report: failure });
   }
 }
+
+
 
 
 
