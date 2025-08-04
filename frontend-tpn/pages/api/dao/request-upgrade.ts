@@ -52,60 +52,70 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: "❌ Missing required fields" });
     }
 
-    // STEP 1: Check if token already has an E-type upgrade ticket
-    const { data: existing, error: existErr } = await supabase
-      .from("dao_tickets")
-      .select("tokenAddress")
-      .eq("tokenAddress", tokenAddress.toLowerCase())
-      .eq("type", "E");
-
-    if (existErr) {
-      console.error("❌ Supabase check error:", existErr);
-      return res.status(500).json({ error: "❌ Supabase check failed" });
-    }
-
-    if (existing && existing.length > 0) {
-      return res.status(400).json({ error: "❌ Upgrade request already submitted for this token." });
-    }
-
-    // STEP 2: Verify onchain token info
+    // Base URL setup
     const baseUrl = process.env.NEXT_PUBLIC_VERCEL_URL
       ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
       : req.headers.origin || "http://localhost:3000";
 
-    const verifyRes = await axios.post(`${baseUrl}/api/dao/getTokenInfo`, {
-      tokenAddress
-    });
+    // STEP 1: Call getTokenInfo to confirm on-chain registration
+    let verified = null;
 
-    const verified = verifyRes.data;
-
-    // STEP 3: Debug fingerprints
-    console.log("🎯 Fingerprint Debug", {
-      input: {
-        name: sanitize(name),
-        symbol: sanitize(symbol),
-        creator: creator.toLowerCase(),
-        tokenAddress: tokenAddress.toLowerCase()
-      },
-      verified: {
-        name: sanitize(verified.name),
-        symbol: sanitize(verified.symbol),
-        creator: verified.creator.toLowerCase(),
-        tokenAddress: verified.tokenAddress.toLowerCase()
-      }
-    });
-
-    // STEP 4: Fingerprint check
-    if (
-      sanitize(name) !== sanitize(verified.name) ||
-      sanitize(symbol) !== sanitize(verified.symbol) ||
-      creator.toLowerCase() !== verified.creator.toLowerCase() ||
-      tokenAddress.toLowerCase() !== verified.tokenAddress.toLowerCase()
-    ) {
-      return res.status(400).json({ error: "❌ Fingerprint mismatch. Submission rejected." });
+    try {
+      const verifyRes = await axios.post(`${baseUrl}/api/dao/getTokenInfo`, {
+        tokenAddress
+      });
+      verified = verifyRes.data;
+    } catch (err: any) {
+      console.warn("⚠️ getTokenInfo failed, skipping fingerprint check.");
     }
 
-    // STEP 5: Count total E-type tickets for new ticket number
+    // STEP 2: If on-chain match found, check fingerprint
+    if (verified) {
+      console.log("🎯 Fingerprint Debug", {
+        input: {
+          name: sanitize(name),
+          symbol: sanitize(symbol),
+          creator: creator.toLowerCase(),
+          tokenAddress: tokenAddress.toLowerCase()
+        },
+        verified: {
+          name: sanitize(verified.name),
+          symbol: sanitize(verified.symbol),
+          creator: verified.creator.toLowerCase(),
+          tokenAddress: verified.tokenAddress.toLowerCase()
+        }
+      });
+
+      if (
+        sanitize(name) !== sanitize(verified.name) ||
+        sanitize(symbol) !== sanitize(verified.symbol) ||
+        creator.toLowerCase() !== verified.creator.toLowerCase() ||
+        tokenAddress.toLowerCase() !== verified.tokenAddress.toLowerCase()
+      ) {
+        return res.status(400).json({ error: "❌ Fingerprint mismatch. Submission rejected." });
+      }
+    } else {
+      return res.status(400).json({ error: "❌ Token not found on-chain. Please register first." });
+    }
+
+    // STEP 3: Check if token is already in pending upgrade list
+    const { data: existing, error: existErr } = await supabase
+      .from("dao_tickets")
+      .select("tokenAddress")
+      .eq("tokenAddress", tokenAddress.toLowerCase())
+      .eq("type", "E")
+      .eq("status", "pending");
+
+    if (existErr) {
+      console.error("❌ Supabase check error:", existErr);
+      return res.status(500).json({ error: "Error checking existing tickets." });
+    }
+
+    if (existing && existing.length > 0) {
+      return res.status(400).json({ error: "❌ Upgrade already submitted for this token." });
+    }
+
+    // STEP 4: Count existing E-tickets for numbering
     const { count, error: countErr } = await supabase
       .from("dao_tickets")
       .select("*", { count: "exact", head: true })
@@ -153,6 +163,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: "❌ Internal Server Error" });
   }
 }
+
 
 
 

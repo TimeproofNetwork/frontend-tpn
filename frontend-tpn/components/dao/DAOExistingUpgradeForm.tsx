@@ -125,16 +125,23 @@ if (level === 3) {
 
     try {
       setStatus("submitting");
-      let tokenAddress = formData.tokenAddress?.trim();
 
       console.log("🔍 Verifying fingerprint via /api/dao/getTokenInfo");
-
-const resInfo = await axios.post("/api/dao/getTokenInfo", {
-  name: name.trim(),
-  symbol: symbol.trim()
+      const resInfo = await axios.post("/api/dao/getTokenInfo", {
+  tokenAddress: formData.tokenAddress.trim()
 });
-      const info = resInfo.data;
-      console.log("📬 Fingerprint check result:", info);
+
+const info = resInfo.data;
+console.log("📬 Fingerprint check result:", info);
+
+if (!info || !info.tokenAddress) {
+  setStatus("mismatch");
+  return alert("❌ Token not registered onchain. Cannot upgrade unregistered token.");
+}
+
+// Inject resolved tokenAddress into formData
+setFormData((prev) => ({ ...prev, tokenAddress: info.tokenAddress }));
+
 
       if (!info || !info.tokenAddress || !info.fingerprint) {
         setStatus("mismatch");
@@ -170,9 +177,10 @@ const resInfo = await axios.post("/api/dao/getTokenInfo", {
       }
       // 🛡️ Check if token already has a pending or closed upgrade ticket
   const checkRes = await axios.post("/api/dao/checkExistingTicket", {
-  name: name.trim(),
-  symbol: symbol.trim(),
-  tokenAddress: info.tokenAddress
+    tokenAddress: info.tokenAddress ?? formData.tokenAddress?.trim(),
+  name: info.name ?? name.trim(),
+  symbol: info.symbol ?? symbol.trim()
+
 });
 
 if (checkRes.data?.exists) {
