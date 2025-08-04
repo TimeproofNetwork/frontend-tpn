@@ -52,20 +52,34 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: "❌ Missing required fields" });
     }
 
-    // Safe fallback for base URL
-    const baseUrl =
-    process.env.NEXT_PUBLIC_VERCEL_URL
-    ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
-    : req.headers.origin || "http://localhost:3000";
+    // STEP 1: Check if token already has an E-type upgrade ticket
+    const { data: existing, error: existErr } = await supabase
+      .from("dao_tickets")
+      .select("tokenAddress")
+      .eq("tokenAddress", tokenAddress.toLowerCase())
+      .eq("type", "E");
 
-    // STEP 1: Call getTokenInfo
+    if (existErr) {
+      console.error("❌ Supabase check error:", existErr);
+      return res.status(500).json({ error: "❌ Supabase check failed" });
+    }
+
+    if (existing && existing.length > 0) {
+      return res.status(400).json({ error: "❌ Upgrade request already submitted for this token." });
+    }
+
+    // STEP 2: Verify onchain token info
+    const baseUrl = process.env.NEXT_PUBLIC_VERCEL_URL
+      ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
+      : req.headers.origin || "http://localhost:3000";
+
     const verifyRes = await axios.post(`${baseUrl}/api/dao/getTokenInfo`, {
       tokenAddress
     });
 
     const verified = verifyRes.data;
 
-    // STEP 2: Debug
+    // STEP 3: Debug fingerprints
     console.log("🎯 Fingerprint Debug", {
       input: {
         name: sanitize(name),
@@ -81,7 +95,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     });
 
-    // STEP 3: Fingerprint mismatch check
+    // STEP 4: Fingerprint check
     if (
       sanitize(name) !== sanitize(verified.name) ||
       sanitize(symbol) !== sanitize(verified.symbol) ||
@@ -91,7 +105,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: "❌ Fingerprint mismatch. Submission rejected." });
     }
 
-    // STEP 4: Save to Supabase (E-type tickets only)
+    // STEP 5: Count total E-type tickets for new ticket number
     const { count, error: countErr } = await supabase
       .from("dao_tickets")
       .select("*", { count: "exact", head: true })
@@ -139,6 +153,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: "❌ Internal Server Error" });
   }
 }
+
 
 
 
