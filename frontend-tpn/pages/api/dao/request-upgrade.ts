@@ -53,7 +53,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Safe fallback for base URL
-    const baseUrl = req.headers.origin || "http://localhost:3000";
+    const baseUrl =
+    process.env.NEXT_PUBLIC_VERCEL_URL
+    ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
+    : req.headers.origin || "http://localhost:3000";
 
     // STEP 1: Call getTokenInfo
     const verifyRes = await axios.post(`${baseUrl}/api/dao/getTokenInfo`, {

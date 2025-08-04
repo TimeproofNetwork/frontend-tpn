@@ -127,13 +127,23 @@ async function main() {
   });
 
   clusters.forEach((cluster, idx) => {
-    if (cluster.length < 2) return;
-    cluster.forEach(token => {
+    const root = cluster[0];
+
+    for (let k = 1; k < cluster.length; k++) {
+      const token = cluster[k];
       const addr = token.creator;
-      if (!creatorStats[addr]) return;
-      creatorStats[addr].clusters.add(idx);
-      creatorStats[addr].contribution++;
-    });
+      if (!creatorStats[addr]) continue;
+
+      const isSuspicious =
+        token.symbol.length <= 3
+          ? isSC(token, root)
+          : isLSIC(token, root);
+
+      if (isSuspicious) {
+        creatorStats[addr].clusters.add(idx);
+        creatorStats[addr].contribution++;
+      }
+    }
   });
 
   const scores = Object.entries(creatorStats)
@@ -174,6 +184,7 @@ main().catch((err) => {
   console.error("❌ Scan Failed:", err);
   process.exit(1);
 });
+
 
 
 

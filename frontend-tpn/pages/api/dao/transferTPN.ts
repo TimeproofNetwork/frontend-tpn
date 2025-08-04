@@ -1,6 +1,14 @@
+// /pages/api/dao/transferTPN.ts
+
 import type { NextApiRequest, NextApiResponse } from "next";
 import { ethers } from "ethers";
-import TPNToken from "@/abi/TPNToken.json"; // ✅ Import full artifact
+import { createClient } from "@supabase/supabase-js";
+import TPNToken from "@/abi/TPNToken.json"; // ✅ ABI still loaded locally
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -19,13 +27,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
+    // 🔍 Fetch token address from Supabase
+    const { data, error } = await supabase
+      .from("tpn_token_meta")
+      .select("address")
+      .eq("symbol", "TPN")
+      .single();
+
+    if (error || !data) {
+      throw new Error("TPN token metadata not found in Supabase");
+    }
+
     // ✅ Provider and signer setup
     const provider = new ethers.providers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);
     const signer = new ethers.Wallet(process.env.ADMIN_PRIVATE_KEY!, provider);
 
-    // ✅ Contract setup with ABI-only reference
-    const TPN_TOKEN_ADDRESS = process.env.NEXT_PUBLIC_TPN_TOKEN as `0x${string}`;
-    const token = new ethers.Contract(TPN_TOKEN_ADDRESS, TPNToken.abi, signer);
+    // ✅ Contract setup using Supabase address and local ABI
+    const token = new ethers.Contract(data.address, TPNToken.abi, signer);
 
     const parsedAmount = ethers.utils.parseUnits(amount.toString(), 18);
     console.log(`⏳ Sending ${amount} TPN to ${recipient}...`);
@@ -46,6 +64,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: err.message || "Transfer failed" });
   }
 }
+
 
 
 
