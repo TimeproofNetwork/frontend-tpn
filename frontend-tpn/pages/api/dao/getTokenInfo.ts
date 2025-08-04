@@ -1,19 +1,23 @@
-// /pages/api/getTokenInfo.ts
-
-import { NextApiRequest, NextApiResponse } from "next";
+import type { NextApiRequest, NextApiResponse } from "next";
 import { ethers } from "ethers";
+import { createClient } from "@supabase/supabase-js";
 import TokenRegistry from "@/abi/TokenRegistry.json";
-import dotenv from "dotenv";
 
-dotenv.config();
-
-const TOKEN_REGISTRY_ADDRESS = process.env.NEXT_PUBLIC_TOKEN_REGISTRY as `0x${string}`;
-const provider = new ethers.providers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);
-
-// ✅ Canonical TPN Sanitization (CIS Standard)
+// Canonical CIS Sanitization
 function sanitize(str: string): string {
   return str?.toLowerCase().replace(/[^a-z0-9]/g, "") ?? "";
 }
+
+// Supabase client setup
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+// Optional fallback: onchain provider and contract
+const provider = new ethers.providers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);
+const TOKEN_REGISTRY_ADDRESS = process.env.NEXT_PUBLIC_TOKEN_REGISTRY as `0x${string}`;
+const registry = new ethers.Contract(TOKEN_REGISTRY_ADDRESS, TokenRegistry.abi, provider);
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -22,69 +26,106 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const { tokenAddress, name, symbol } = req.body;
-    const registry = new ethers.Contract(TOKEN_REGISTRY_ADDRESS, TokenRegistry.abi, provider);
 
-    // ✅ Method 1: Direct lookup by tokenAddress
+    if (!tokenAddress && (!name || !symbol)) {
+      return res.status(400).json({ error: "❌ tokenAddress or name+symbol required." });
+    }
+
+    // 🔎 Method 1: Supabase lookup by tokenAddress
     if (tokenAddress) {
-      const result = await registry.getTokenInfo(tokenAddress);
+      const { data, error } = await supabase
+        .from("dao_tickets")
+        .select("*")
+        .eq("tokenAddress", tokenAddress.toLowerCase())
+        .order("timestamp", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-      const tokenName = result[0];
-      const tokenSymbol = result[1];
-      const tokenAddressConfirmed = tokenAddress;
-      const registeredBy = result[3]; // registeredBy = creator
-      const timestamp = result[4]?.toNumber?.() ?? 0;
-      const trustLevel = result[7] ?? 0;
+      if (error) {
+        console.error("❌ Supabase tokenAddress error:", error.message);
+      }
 
-      return res.status(200).json({
-        name: tokenName,
-        symbol: tokenSymbol,
-        creator: registeredBy,
-        timestamp,
-        trustLevel,
-        tokenAddress: tokenAddressConfirmed,
-        fingerprint: {
-          name: sanitize(tokenName),
-          symbol: sanitize(tokenSymbol)
-        }
-      });
-    }
-
-    // ✅ Method 2: Fallback to name+symbol lookup
-    if (!name || !symbol) {
-      return res.status(400).json({ error: "❌ name or symbol required if tokenAddress is missing." });
-    }
-
-    const tokens = await registry.getTokenLogbook();
-    const inputName = sanitize(name);
-    const inputSymbol = sanitize(symbol);
-
-    for (const token of tokens) {
-      const regName = sanitize(token[0]);  // token.name
-      const regSymbol = sanitize(token[1]); // token.symbol
-
-      if (regName === inputName && regSymbol === inputSymbol) {
+      if (data) {
         return res.status(200).json({
-          name: token[0],              // name
-          symbol: token[1],            // symbol
-          tokenAddress: token[2],      // tokenAddress
-          creator: token[3],           // registeredBy (creator)
-          timestamp: token[4]?.toNumber?.() ?? 0, // timestamp
-          trustLevel: token[7] ?? 0,    // trustLevel
+          name: data.name,
+          symbol: data.symbol,
+          creator: data.creator,
+          timestamp: data.timestamp,
+          trustLevel: data.requestedLevel ?? 0,
+          tokenAddress: data.tokenAddress,
           fingerprint: {
-            name: regName,
-            symbol: regSymbol
+            name: sanitize(data.name),
+            symbol: sanitize(data.symbol)
           }
         });
       }
     }
 
-    return res.status(404).json({ error: "❌ No matching token found in registry." });
+    // 🔁 Method 2: Supabase fallback by sanitized name + symbol
+    if (name && symbol) {
+      const inputName = sanitize(name);
+      const inputSymbol = sanitize(symbol);
+
+      const { data, error } = await supabase
+        .from("dao_tickets")
+        .select("*")
+        .order("timestamp", { ascending: false })
+        .limit(500);
+
+      if (error) {
+        console.error("❌ Supabase name+symbol fallback error:", error.message);
+      }
+
+      const match = data?.find(token =>
+        sanitize(token.name) === inputName && sanitize(token.symbol) === inputSymbol
+      );
+
+      if (match) {
+        return res.status(200).json({
+          name: match.name,
+          symbol: match.symbol,
+          creator: match.creator,
+          timestamp: match.timestamp,
+          trustLevel: match.requestedLevel ?? 0,
+          tokenAddress: match.tokenAddress,
+          fingerprint: {
+            name: sanitize(match.name),
+            symbol: sanitize(match.symbol)
+          }
+        });
+      }
+    }
+
+    // 🧱 Final fallback: Onchain contract lookup
+    if (tokenAddress) {
+      try {
+        const result = await registry.getTokenInfo(tokenAddress);
+
+        return res.status(200).json({
+          name: result[0],
+          symbol: result[1],
+          creator: result[3],
+          timestamp: result[4]?.toNumber?.() ?? 0,
+          trustLevel: result[7] ?? 0,
+          tokenAddress,
+          fingerprint: {
+            name: sanitize(result[0]),
+            symbol: sanitize(result[1])
+          }
+        });
+      } catch (err: any) {
+        console.error("❌ Onchain getTokenInfo() failed:", err.message);
+      }
+    }
+
+    return res.status(404).json({ error: "❌ Token not found in Supabase or chain." });
 
   } catch (err: any) {
-    console.error("❌ getTokenInfo error:", err.message || err);
+    console.error("❌ Server error:", err.message || err);
     return res.status(500).json({ error: "❌ Internal server error." });
   }
 }
+
 
 
 
