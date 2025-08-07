@@ -176,28 +176,58 @@ setFormData((prev) => ({ ...prev, tokenAddress: info.tokenAddress }));
         return;
       }
       // 🛡️ Check if token already has a pending or closed upgrade ticket
-  const checkRes = await axios.post("/api/dao/checkExistingTicket", {
-    tokenAddress: info.tokenAddress ?? formData.tokenAddress?.trim(),
-  name: info.name ?? name.trim(),
-  symbol: info.symbol ?? symbol.trim()
-
-});
+  let checkRes;
+try {
+  checkRes = await axios.post("/api/dao/checkExistingTicket", {
+    type: "E",
+    tokenAddress: info.tokenAddress.trim(),
+    name: sanitize(name),
+    symbol: sanitize(symbol),
+    creator: address.toLowerCase()
+  });
+} catch (e) {
+  console.error("❌ Ticket check failed:", e);
+setStatus("error");
+alert("❌ Failed to verify duplicate status. Please try again.");
+setStatus("idle"); // 👈 immediately unlock
+return;
+}
 
 if (checkRes.data?.exists) {
   setStatus("error");
-  return alert("⚠️ Upgrade request already exists for this token. Cannot submit again.");
+  return alert("⚠️ Upgrade request already exists for this token.");
 }
 
-      const payload = {
-        type: "E",
-        name: name.trim(),
-        symbol: symbol.trim(),
-        tokenAddress: info.tokenAddress,
-        creator: address,
-        proof1: proof1.trim(),
-        proof2: proof2.trim(),
-        requestedLevel: level
-      };
+// 🛡️ FINAL GATE: Recheck against existing tickets using sanitized data + canonical address
+console.log("🚫 Final double-check against duplicate DAO tickets...");
+const verifyDuplicate = await axios.post("/api/dao/checkExistingTicket", {
+  type: "E",
+  tokenAddress: info.tokenAddress.trim(),
+  name: sanitize(name),
+  symbol: sanitize(symbol),
+  creator: address.toLowerCase()
+});
+
+if (verifyDuplicate.data?.exists) {
+  setStatus("error");
+  return alert("❌ Upgrade already submitted. Cannot submit duplicate ticket.");
+}
+
+      // 🧬 Construct canonical fingerprint
+const uniqueFingerprint = `${sanitize(name)}|${sanitize(symbol)}|${info.tokenAddress.toLowerCase()}|${address.toLowerCase()}`;
+
+// 📨 Final payload with fingerprint included
+const payload = {
+  type: "E",
+  name: name.trim(),
+  symbol: symbol.trim(),
+  tokenAddress: info.tokenAddress,
+  creator: address,
+  proof1: proof1.trim(),
+  proof2: proof2.trim(),
+  requestedLevel: level,
+  uniqueFingerprint // ⬅️ new field
+};
 
       const res = await axios.post("/api/dao/request-upgrade", payload);
       const ticket = res.data?.ticket?.ticket;
@@ -216,7 +246,8 @@ if (checkRes.data?.exists) {
       }
 
       console.error("❌ Upgrade request failed:", message);
-      alert(`❌ ${message}`);
+alert(`❌ ${message}`);
+setStatus("error"); // 🔒 prevents infinite retry or stuck state
     }
 
   };
@@ -323,14 +354,16 @@ if (checkRes.data?.exists) {
       </div>
 
       <button
-        onClick={handleSubmit}
-        disabled={status === "submitting"}
+  onClick={handleSubmit}
+  disabled={status === "submitting" || status === "submitted" || status === "error"}
+
         className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 rounded mt-6"
       >
         {status === "submitting" ? "Submitting..." : "Submit Upgrade Request"}
       </button>
     </div>
   );
+
 }
 
 

@@ -1,13 +1,24 @@
-// pages/api/dao/submitPublicSuggestion.ts
+// /pages/api/dao/submitPublicSuggestion.ts
 
 import type { NextApiRequest, NextApiResponse } from "next";
 import { ethers } from "ethers";
 import { createClient } from "@supabase/supabase-js";
 
+// Supabase client
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+// 🔐 CIS Sanitization
+function sanitize(str: string): string {
+  return str?.toLowerCase().replace(/[^a-z0-9]/g, "") ?? "";
+}
+
+// 🧬 Fingerprint generator: requester + token only
+function generateFingerprint(token: string, requester: string): string {
+  return `${token.toLowerCase()}|${requester.toLowerCase()}`;
+}
 
 type Suggestion = {
   id?: string;
@@ -19,6 +30,7 @@ type Suggestion = {
   requester: string;
   timestamp: number;
   status: "open" | "closed-approved" | "closed-rejected";
+  uniquefingerprint?: string;
 };
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -41,11 +53,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ error: "Invalid token or requester address." });
   }
 
-  // Check if a suggestion for this token is already open
+  const normalizedToken = ethers.utils.getAddress(token);
+  const normalizedRequester = ethers.utils.getAddress(requester);
+  const uniquefingerprint = generateFingerprint(normalizedToken, normalizedRequester);
+
+  // Check if this suggestion already exists by fingerprint
   const { data: existing, error: queryErr } = await supabase
     .from("public_suggestions")
     .select("id")
-    .eq("token", ethers.utils.getAddress(token))
+    .eq("uniquefingerprint", uniquefingerprint)
     .eq("status", "open");
 
   if (queryErr) {
@@ -56,7 +72,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (existing && existing.length > 0) {
     return res
       .status(409)
-      .json({ error: "Suggestion already exists for this token (open)." });
+      .json({ error: "Suggestion already exists for this token and requester (open)." });
   }
 
   // Compute next ticket id
@@ -70,13 +86,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const newEntry: Suggestion = {
     id: ticketId,
     ticket: String(ticket),
-    token: ethers.utils.getAddress(token),
+    token: normalizedToken,
     reason: String(reason),
     link1: String(link1),
     link2: link2 ? String(link2) : undefined,
-    requester: ethers.utils.getAddress(requester),
+    requester: normalizedRequester,
     timestamp: Date.now(),
     status: "open",
+    uniquefingerprint // ✅ Now matches new logic
   };
 
   const { error: insertErr } = await supabase
@@ -90,6 +107,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   return res.status(200).json({ success: true, suggestion: newEntry, ticketId });
 }
+
+
 
 
 

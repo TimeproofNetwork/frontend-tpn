@@ -1,3 +1,5 @@
+// /pages/api/dao/request-upgrade.ts
+
 import type { NextApiRequest, NextApiResponse } from "next";
 import axios from "axios";
 import { createClient } from "@supabase/supabase-js";
@@ -8,9 +10,19 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// Fallback sanitize function
+// 🔐 CIS Sanitization
 function sanitize(str: string): string {
   return str?.toLowerCase().replace(/[^a-z0-9]/g, "") ?? "";
+}
+
+// 🧬 Fingerprint Generator
+function generateFingerprint(
+  name: string,
+  symbol: string,
+  tokenAddress: string,
+  creator: string
+): string {
+  return `${sanitize(name)}|${sanitize(symbol)}|${tokenAddress.toLowerCase()}|${creator.toLowerCase()}`;
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -34,7 +46,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         ? req.body.requestedLevel
         : Number(req.body.requestedLevel);
 
-    // Basic validation
+    // ✅ Mandatory field check
     if (
       !name?.trim() ||
       !symbol?.trim() ||
@@ -42,24 +54,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       !proof1?.trim() ||
       !requestedLevel
     ) {
-      console.error("❌ Missing required fields:", {
-        name,
-        symbol,
-        creator,
-        requestedLevel,
-        proof1
-      });
       return res.status(400).json({ error: "❌ Missing required fields" });
     }
 
-    // Base URL setup
-    const baseUrl = process.env.NEXT_PUBLIC_VERCEL_URL
-      ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
-      : req.headers.origin || "http://localhost:3000";
+    const baseUrl =
+      req.headers.origin ||
+      (req.headers.host?.startsWith("localhost")
+        ? "http://localhost:3000"
+        : `https://${req.headers.host}`);
 
-    // STEP 1: Call getTokenInfo to confirm on-chain registration
+    // ✅ STEP 1: Fetch on-chain fingerprint for validation
     let verified = null;
-
     try {
       const verifyRes = await axios.post(`${baseUrl}/api/dao/getTokenInfo`, {
         tokenAddress
@@ -69,7 +74,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.warn("⚠️ getTokenInfo failed, skipping fingerprint check.");
     }
 
-    // STEP 2: If on-chain match found, check fingerprint
     if (verified) {
       console.log("🎯 Fingerprint Debug", {
         input: {
@@ -98,24 +102,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: "❌ Token not found on-chain. Please register first." });
     }
 
-    // STEP 3: Check if token is already in pending upgrade list
+    // 🧬 STEP 2: Generate unique fingerprint
+    const uniqueFingerprint = generateFingerprint(name, symbol, tokenAddress, creator);
+
+    // 🛑 STEP 3: Check if this fingerprint already exists
     const { data: existing, error: existErr } = await supabase
       .from("dao_tickets")
-      .select("tokenAddress")
-      .eq("tokenAddress", tokenAddress.toLowerCase())
+      .select("uniquefingerprint") // ✅ updated column name
+      .eq("uniquefingerprint", uniqueFingerprint) // ✅ updated column name
       .eq("type", "E")
       .eq("status", "pending");
 
     if (existErr) {
-      console.error("❌ Supabase check error:", existErr);
+      console.error("❌ Supabase fingerprint check error:", existErr);
       return res.status(500).json({ error: "Error checking existing tickets." });
     }
 
     if (existing && existing.length > 0) {
-      return res.status(400).json({ error: "❌ Upgrade already submitted for this token." });
+      return res.status(400).json({ error: "❌ Duplicate upgrade already submitted." });
     }
 
-    // STEP 4: Count existing E-tickets for numbering
+    // ✅ STEP 4: Get E-count for ticket number
     const { count, error: countErr } = await supabase
       .from("dao_tickets")
       .select("*", { count: "exact", head: true })
@@ -129,19 +136,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const ticketNumber = (count ?? 0) + 1;
     const submitted = new Date().toISOString();
 
+    // ✅ STEP 5: Save new ticket with fingerprint
     const newTicket = {
       ticket: `E#${ticketNumber}`,
       type: "E",
       name,
       symbol,
-      tokenAddress,
-      creator,
+      tokenAddress: tokenAddress.toLowerCase(),
+      creator: creator.toLowerCase(),
       proof1,
       proof2,
       requestedLevel,
       status: "pending",
       timestamp: Math.floor(Date.now() / 1000),
-      submitted
+      submitted,
+      uniquefingerprint: uniqueFingerprint // ✅ lowercase key
     };
 
     const { error: insertErr } = await supabase
@@ -163,6 +172,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: "❌ Internal Server Error" });
   }
 }
+
+
+
+
 
 
 

@@ -1,49 +1,28 @@
+// pages/api/scanCreatorTrustScore.ts
+
 import type { NextApiRequest, NextApiResponse } from "next";
 import { ethers } from "ethers";
 import TokenRegistryAbi from "@/abi/TokenRegistry.json";
 import dotenv from "dotenv";
+import levenshtein from "fast-levenshtein";
 
 dotenv.config();
 
 const TOKEN_REGISTRY = process.env.NEXT_PUBLIC_TOKEN_REGISTRY as `0x${string}`;
 const RPC_URL = process.env.SEPOLIA_RPC_URL;
 
-function convertUnicodeToAscii(str: string): string {
-  return str.normalize("NFKD").replace(/[̀-ͯ]/g, "");
+function sanitize(str: string): string {
+  return str.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
-function sanitizeInput(str: string): string {
-  return convertUnicodeToAscii(str).toLowerCase().replace(/[^a-z0-9]/g, "");
+function unified(name: string, symbol: string): string {
+  return sanitize(name + symbol);
 }
 
-function editDistance(a: string, b: string): number {
-  const dp = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
-  for (let i = 0; i <= a.length; i++) dp[i][0] = i;
-  for (let j = 0; j <= b.length; j++) dp[0][j] = j;
-  for (let i = 1; i <= a.length; i++) {
-    for (let j = 1; j <= b.length; j++) {
-      dp[i][j] = a[i - 1] === b[j - 1]
-        ? dp[i - 1][j - 1]
-        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
-    }
-  }
-  return dp[a.length][b.length];
-}
-
-function isSC(input: any, prior: any): boolean {
-  const n1 = sanitizeInput(input.name);
-  const n2 = sanitizeInput(prior.name);
-  const s1 = sanitizeInput(input.symbol);
-  const s2 = sanitizeInput(prior.symbol);
-  return s1.length <= 3 && editDistance(n1, n2) <= 3 && editDistance(s1, s2) <= 2;
-}
-
-function isLSIC(input: any, prior: any): boolean {
-  const s1 = sanitizeInput(input.symbol);
-  if (s1.length <= 3) return false;
-  const id1 = sanitizeInput(input.name + input.symbol);
-  const id2 = sanitizeInput(prior.name + prior.symbol);
-  return editDistance(id1, id2) <= 2;
+function isSuspicious(candidate: any, root: any): boolean {
+  const u1 = unified(candidate.name, candidate.symbol);
+  const u2 = unified(root.name, root.symbol);
+  return levenshtein.get(u1, u2) <= 3;
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -95,16 +74,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   creatorTokens.forEach(token => {
     const priorTokens = tokens.filter(t => t.timestamp < token.timestamp);
     for (const prior of priorTokens) {
-      if (token.symbol.length <= 3) {
-        if (isSC(token, prior)) {
+      if (isSuspicious(token, prior)) {
+        const dist = levenshtein.get(unified(token.name, token.symbol), unified(prior.name, prior.symbol));
+        if (dist <= 3) {
+          if (token.symbol.length <= 3) {
+            penalty += 10;
+          } else {
+            penalty += 25;
+          }
           suspiciousCount++;
-          penalty += 10;
-          break;
-        }
-      } else {
-        if (isLSIC(token, prior)) {
-          suspiciousCount++;
-          penalty += 25;
           break;
         }
       }
@@ -126,6 +104,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   return res.status(200).json({ output: lines.join("\n") });
 }
+
+
+
 
 
 

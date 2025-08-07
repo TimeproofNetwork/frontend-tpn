@@ -1,3 +1,5 @@
+// pages/api/scanSuspicionListDEX.ts
+
 import type { NextApiRequest, NextApiResponse } from "next";
 import { ethers } from "ethers";
 import levenshtein from "fast-levenshtein";
@@ -17,22 +19,9 @@ function unified(name: string, symbol: string): string {
 }
 
 function isSuspicious(candidate: any, root: any): boolean {
-  const n1 = sanitize(candidate.name);
-  const n2 = sanitize(root.name);
-  const s1 = sanitize(candidate.symbol);
-  const s2 = sanitize(root.symbol);
-
-  if (s1.length <= 3 && s2.length <= 3) {
-    return levenshtein.get(n1, n2) <= 3 && levenshtein.get(s1, s2) <= 2;
-  }
-
-  if (s1.length > 3 && s2.length > 3) {
-    const id1 = unified(candidate.name, candidate.symbol);
-    const id2 = unified(root.name, root.symbol);
-    return levenshtein.get(id1, id2) <= 2;
-  }
-
-  return false;
+  const u1 = unified(candidate.name, candidate.symbol);
+  const u2 = unified(root.name, root.symbol);
+  return levenshtein.get(u1, u2) <= 3;
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -41,7 +30,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const { name: rawName, symbol: rawSymbol } = req.body;
-
   if (!rawName || !rawSymbol) {
     return res.status(400).json({ output: "❌ Token name and symbol are required!" });
   }
@@ -57,7 +45,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const nameSan = sanitize(rawName);
   const symbolSan = sanitize(rawSymbol);
   const unifiedInput = unified(nameSan, symbolSan);
-  const isSC = symbolSan.length <= 3;
 
   let tokens: any[] = [];
   try {
@@ -69,18 +56,37 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const inputIndex = tokens.findIndex(t => sanitize(t.name) === nameSan && sanitize(t.symbol) === symbolSan);
-  const inputToken = inputIndex !== -1 ? tokens[inputIndex] : {
+
+  const isRegistered = inputIndex !== -1;
+  const inputToken = isRegistered ? tokens[inputIndex] : {
     name: nameSan,
     symbol: symbolSan,
-    tokenAddress: "❓ (Unregistered)",
-    registeredBy: "undefined",
+    tokenAddress: undefined,
+    registeredBy: "Unregistered",
     timestamp: undefined,
     index: -1,
   };
 
-  let trustLevel = 0;
+  // 🛡️ DAO Ban override — only if registered
   try {
-    if (inputToken.tokenAddress !== "❓ (Unregistered)") {
+    const isDaoBanned = await registry.isDAOPunished(nameSan, symbolSan);
+    if (isDaoBanned) {
+      return res.status(200).json({
+        output: [
+          `🔎 Scanning Token: ${rawName} (${rawSymbol})`,
+          `📦 Address: ${inputToken.tokenAddress ?? "Unregistered"}`,
+          `🧑 Creator: ${inputToken.registeredBy}`,
+          `📅 Registered: ${inputToken.timestamp ? new Date(Number(inputToken.timestamp) * 1000).toLocaleString("en-US") : "Unregistered"}`,
+          `🔒 Trust Level: ⚫ Level 0`,
+          `⚫ Recommendation: Token is DAO Banned.`
+        ].join("\n")
+      });
+    }
+  } catch (_) {}
+
+  let trustLevel = -1;
+  try {
+    if (isRegistered && inputToken.tokenAddress) {
       const trustDetails = await registry.getTrustDetails(inputToken.tokenAddress);
       trustLevel = parseInt(trustDetails.trustLevel || trustDetails[0]);
     }
@@ -88,51 +94,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const trustIcons = ["⚫", "🟡", "🟢", "🟣"];
   const trustText = ["Level 0", "Level 1", "Level 2", "Level 3"];
+  const trustIcon = trustLevel >= 0 ? trustIcons[trustLevel] : "⚪";
+  const trustLabel = trustLevel >= 0 ? trustText[trustLevel] : "Level — Undefined";
 
   const baseLines = [
     `🔎 Scanning Token: ${rawName} (${rawSymbol})`,
-    `📦 Address: ${inputToken.tokenAddress}`,
+    `📦 Address: ${inputToken.tokenAddress ?? "Unregistered"}`,
     `🧑 Creator: ${inputToken.registeredBy}`,
-    `📅 Registered: ${inputToken.timestamp ? new Date(inputToken.timestamp * 1000).toLocaleString("en-US") : "Unregistered"}`,
-    `🔒 Trust Level: ${trustIcons[trustLevel] || "⚫"} ${trustText[trustLevel] || "Level 0"}`
+    `📅 Registered: ${inputToken.timestamp ? new Date(Number(inputToken.timestamp) * 1000).toLocaleString("en-US") : "Unregistered"}`,
+    `🔒 Trust Level: ${trustIcon} ${trustLabel}`
   ];
 
-  // ✅ If DAO Banned (trustLevel 0) → Skip all suspicion logic
-  if (trustLevel === 0) {
-    baseLines.push(`☠️ Caution — Token is DAO Banned.`);
-    return res.status(200).json({ output: baseLines.join("\n") });
-  }
+  const cluster = tokens.filter(t => isSuspicious(t, { name: rawName, symbol: rawSymbol }));
+  const unique = new Map(cluster.map(t => [unified(t.name, t.symbol), t]));
+  const all = Array.from(unique.values());
 
-  const candidates = tokens.filter(t => {
-    if (t.index === inputToken.index) return false;
-    if (!t.timestamp || (inputToken.timestamp && t.timestamp >= inputToken.timestamp)) return false;
-
-    const nameDist = levenshtein.get(nameSan, sanitize(t.name));
-    const symDist = levenshtein.get(symbolSan, sanitize(t.symbol));
-    const uniDist = levenshtein.get(unifiedInput, unified(t.name, t.symbol));
-
-    return isSC ? (nameDist <= 3 && symDist <= 2) : uniDist <= 2;
-  }).map(t => {
-    const totalEdit = isSC
-      ? levenshtein.get(nameSan, sanitize(t.name)) + levenshtein.get(symbolSan, sanitize(t.symbol))
-      : levenshtein.get(unifiedInput, unified(t.name, t.symbol));
-    return { ...t, totalEdit };
-  });
-
-  if (candidates.length === 0) {
-    const isDAOBlocked = await registry.isDAOPunished(nameSan, symbolSan);
-  if (isDAOBlocked) {
-    return res.status(200).json({
-      output: [
-        `🔎 Scanning Token: ${rawName} (${rawSymbol})`,
-        `📦 Address: ${inputToken.tokenAddress}`,
-        `🧑 Creator: ${inputToken.registeredBy}`,
-        `📅 Registered: ${inputToken.timestamp ? new Date(inputToken.timestamp * 1000).toLocaleString("en-US") : "Unregistered"}`,
-        `🔒 Trust Level: ⚫ Level 0`,
-        `☠️ Caution — Token is DAO Banned.`
-      ].join("\n")
-    });
-  }
+  if (all.length < 2) {
     return res.status(200).json({
       output: [
         ...baseLines,
@@ -141,46 +118,41 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   }
 
-  candidates.sort((a, b) => a.totalEdit !== b.totalEdit ? a.totalEdit - b.totalEdit : a.timestamp - b.timestamp);
-  const root = candidates[0];
+  const root = all[0];
+  const lastMember = all.reduce((latest, curr) => curr.timestamp > latest.timestamp ? curr : latest, all[0]);
 
-  const cluster = tokens.filter(t => isSuspicious(t, root));
-  const unique = new Map(cluster.map(t => [unified(t.name, t.symbol), t]));
-  const all = Array.from(unique.values());
+  let closest = null;
+  let minEdit = Infinity;
+  for (const t of all.filter(t => t.index !== root.index)) {
 
-  if (!all.find(t => t.index === inputToken.index) && inputToken.index !== -1) {
-    all.push(inputToken);
-  }
-
-  const registeredInput = tokens.find(t => sanitize(t.name) === nameSan && sanitize(t.symbol) === symbolSan);
-  const inputDisplay = registeredInput
-    ? `📌 Input Token: ${registeredInput.name} (${registeredInput.symbol}) | Registered at #${registeredInput.index}`
-    : `📌 Input Token: ${sanitize(rawName)} (${sanitize(rawSymbol)}) | Unregistered`;
-
-  let closest = null, minEdit = Infinity;
-  for (const t of all) {
-    if (t.index === root.index) continue;
-    const dist = isSC
-      ? levenshtein.get(sanitize(root.name), sanitize(t.name)) + levenshtein.get(sanitize(root.symbol), sanitize(t.symbol))
-      : levenshtein.get(unified(root.name, root.symbol), unified(t.name, t.symbol));
+    const dist = levenshtein.get(unified(t.name, t.symbol), unifiedInput);
     if (dist < minEdit || (dist === minEdit && (!closest || t.timestamp < closest.timestamp))) {
       minEdit = dist;
       closest = t;
     }
   }
 
-  const lastMember = all.reduce((latest, curr) => curr.timestamp > latest.timestamp ? curr : latest, all[0]);
+  const inputDisplay = isRegistered
+    ? `📌 Input Token: ${inputToken.name} (${inputToken.symbol}) | Registered at #${inputToken.index}`
+    : `📌 Input Token: ${nameSan} (${symbolSan}) | Registered at Unregistered`;
 
   const lines: string[] = [...baseLines];
   lines.push(`\n🧠 Suspicion Cluster Detected (${all.length} tokens)`);
   lines.push(`✅ Base Token: ${root.name} (${root.symbol}) | Registered at #${root.index}`);
   lines.push(inputDisplay);
-  lines.push(`📍 Closest Token: ${closest?.name} (${closest?.symbol}) | Registered at #${closest?.index}`);
+  lines.push(`📍 Closest Token: ${closest?.name ?? "N/A"} (${closest?.symbol ?? "N/A"}) | Registered at #${closest?.index ?? "Unregistered"}`);
   lines.push(`🧩 Last Member: ${lastMember.name} (${lastMember.symbol}) | Registered at #${lastMember.index}`);
   lines.push(`\n🚨 Recommendation: DEX Listing Risk – Review cluster before proceeding.`);
 
   return res.status(200).json({ output: lines.join("\n") });
 }
+
+
+
+
+
+
+
 
 
 
