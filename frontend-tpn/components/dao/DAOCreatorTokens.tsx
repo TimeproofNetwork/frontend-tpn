@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { ethers } from "ethers";
 import { useAccount } from "wagmi";
+import TPNToken from "@/abi/TPNToken.json"; // ✅ ABI import
 
 
 interface TokenEntry {
@@ -102,25 +103,25 @@ export default function DAOCreatorTokens() {
   setTransferStatus("transferring");
 
   try {
-    const res = await fetch(`/api/dao/transferTPN`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        recipient: transferAddress,
-        amount: transferAmount,
-        sender: senderAddress
-      })
-    });
+  setTransferStatus("Fetching token address...");
+  const res = await fetch("/api/dao/getTPNTokenAddress");
+  const { address: tokenAddress } = await res.json();
 
-    const data = await res.json();
-    if (data.txHash) {
-      setTransferStatus(`✅ Transfer successful! Hash: ${data.txHash}`);
-    } else {
-      setTransferStatus("❌ Transfer failed.");
-    }
-  } catch {
-    setTransferStatus("❌ Transfer failed.");
-  }
+  const provider = new ethers.providers.Web3Provider(window.ethereum as any);
+  const signer = await provider.getSigner();
+  const token = new ethers.Contract(tokenAddress, TPNToken.abi, signer);
+
+  setTransferStatus("Sending transaction...");
+  const parsedAmount = ethers.utils.parseUnits(transferAmount, 18);
+  const tx = await token.transfer(transferAddress, parsedAmount);
+  await tx.wait();
+
+  setTransferStatus(`✅ Transfer successful! Hash: ${tx.hash}`);
+} catch (err: any) {
+  console.error("Transfer error:", err);
+  setTransferStatus(`❌ Transfer failed: ${err.message}`);
+}
+
 };
 
   return (
