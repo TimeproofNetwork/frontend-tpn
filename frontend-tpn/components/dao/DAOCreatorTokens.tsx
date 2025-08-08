@@ -33,6 +33,7 @@ export default function DAOCreatorTokens() {
   const [quarantineLoading, setQuarantineLoading] = useState(false);
   const [transferAmount, setTransferAmount] = useState("");
   const [transferStatus, setTransferStatus] = useState("");
+  const [isTransferring, setIsTransferring] = useState(false);
   const { isConnected, address: senderAddress } = useAccount();
   const [mounted, setMounted] = useState(false);
 
@@ -100,29 +101,32 @@ export default function DAOCreatorTokens() {
     return;
   }
 
+  setIsTransferring(true);
   setTransferStatus("transferring");
 
   try {
-  setTransferStatus("Fetching token address...");
-  const res = await fetch("/api/dao/getTPNTokenAddress");
-  const { address: tokenAddress } = await res.json();
+    setTransferStatus("Fetching token address...");
+    const res = await fetch("/api/dao/getTPNTokenAddress");
+    const { address: tokenAddress } = await res.json();
 
-  const provider = new ethers.providers.Web3Provider(window.ethereum as any);
-  const signer = await provider.getSigner();
-  const token = new ethers.Contract(tokenAddress, TPNToken.abi, signer);
+    const provider = new ethers.providers.Web3Provider(window.ethereum as any);
+    const signer = await provider.getSigner();
+    const token = new ethers.Contract(tokenAddress, TPNToken.abi, signer);
 
-  setTransferStatus("Sending transaction...");
-  const parsedAmount = ethers.utils.parseUnits(transferAmount, 18);
-  const tx = await token.transfer(transferAddress, parsedAmount);
-  await tx.wait();
+    setTransferStatus("Sending transaction...");
+    const parsedAmount = ethers.utils.parseUnits(transferAmount, 18);
+    const tx = await token.transfer(transferAddress, parsedAmount);
+    await tx.wait();
 
-  setTransferStatus(`✅ Transfer successful! Hash: ${tx.hash}`);
-} catch (err: any) {
-  console.error("Transfer error:", err);
-  setTransferStatus(`❌ Transfer failed: ${err.message}`);
-}
-
+    setTransferStatus(`✅ Transfer successful! Hash: ${tx.hash}`);
+  } catch (err: any) {
+    console.error("Transfer error:", err);
+    setTransferStatus(`❌ Transfer failed: ${err.message}`);
+  } finally {
+    setIsTransferring(false);
+  }
 };
+
 
   return (
     <div className="bg-gray-900 p-6 rounded-xl border border-gray-700 shadow-md w-full space-y-6">
@@ -242,20 +246,21 @@ export default function DAOCreatorTokens() {
   />
 
   <button
-    onClick={handleTransfer}
-    disabled={transferStatus === "transferring"}
-    className={`${
-      transferStatus === "transferring" ? "bg-purple-400" : "bg-purple-600 hover:bg-purple-700"
-    } text-white font-semibold px-4 py-2 rounded`}
-  >
-    {transferStatus === "transferring" ? "Transferring..." : "Transfer TPN"}
-  </button>
+  onClick={handleTransfer}
+  disabled={isTransferring}
+  className={`${
+    isTransferring ? "bg-purple-400" : "bg-purple-600 hover:bg-purple-700"
+  } text-white font-semibold px-4 py-2 rounded`}
+>
+  {isTransferring ? "Transferring..." : "Transfer TPN"}
+</button>
 
-  {transferStatus && transferStatus !== "transferring" && (
-    <div className="mt-2 text-green-400 font-semibold break-words whitespace-normal">
-  {transferStatus}
-</div>
-  )}
+{transferStatus && !isTransferring && (
+  <div className="mt-2 text-green-400 font-semibold break-words whitespace-normal">
+    {transferStatus}
+  </div>
+)}
+
 </div>
 
       {/* 4. Creator Token Search */}
