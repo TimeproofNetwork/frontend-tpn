@@ -1,3 +1,5 @@
+// /pages/api/dao/getTokenInfo.ts
+
 import type { NextApiRequest, NextApiResponse } from "next";
 import { ethers } from "ethers";
 import { createClient } from "@supabase/supabase-js";
@@ -6,6 +8,16 @@ import TokenRegistry from "@/abi/TokenRegistry.json";
 // ✅ Canonical CIS Sanitization
 function sanitize(str: string): string {
   return str?.toLowerCase().replace(/[^a-z0-9]/g, "") ?? "";
+}
+
+// ✅ Unique Fingerprint Generator
+function generateFingerprint(
+  name: string,
+  symbol: string,
+  tokenAddress: string,
+  creator: string
+): string {
+  return `${sanitize(name)}|${sanitize(symbol)}|${tokenAddress.toLowerCase()}|${creator.toLowerCase()}`;
 }
 
 // ✅ Supabase setup
@@ -25,10 +37,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const { tokenAddress, name, symbol } = req.body;
+    const { tokenAddress, name, symbol, creator } = req.body;
 
     if (!tokenAddress && (!name || !symbol)) {
       return res.status(400).json({ error: "❌ tokenAddress or name+symbol required." });
+    }
+
+    // 🛡️ Check by unique fingerprint (if all fields provided)
+    if (name && symbol && tokenAddress && creator) {
+      const fingerprint = generateFingerprint(name, symbol, tokenAddress, creator);
+
+      const { data: existing, error: fingerprintErr } = await supabase
+        .from("dao_tickets")
+        .select("ticket")
+        .eq("uniquefingerprint", fingerprint)
+        .eq("status", "pending")
+        .limit(1)
+        .maybeSingle();
+
+      if (fingerprintErr) {
+        console.error("❌ Supabase fingerprint check error:", fingerprintErr.message);
+      }
+
+      if (existing) {
+        return res.status(409).json({ error: "🚫 Duplicate: Ticket already pending." });
+      }
     }
 
     // 🔍 1. Supabase lookup by tokenAddress
@@ -36,7 +69,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const { data, error } = await supabase
         .from("dao_tickets")
         .select("*")
-        .eq("tokenAddress", tokenAddress.toLowerCase())
+        .eq("token_address", tokenAddress.toLowerCase())
         .order("timestamp", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -51,8 +84,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           symbol: data.symbol,
           creator: data.creator,
           timestamp: data.timestamp,
-          trustLevel: data.requestedLevel ?? 0,
-          tokenAddress: data.tokenAddress,
+          trustLevel: data.requested_level ?? 0,
+          tokenAddress: data.token_address,
           fingerprint: {
             name: sanitize(data.name),
             symbol: sanitize(data.symbol),
@@ -62,43 +95,43 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // 🔁 2. Supabase fallback by sanitized name + symbol
-  if (name && symbol) {
-  const inputName = sanitize(name);
-  const inputSymbol = sanitize(symbol);
+    if (name && symbol) {
+      const inputName = sanitize(name);
+      const inputSymbol = sanitize(symbol);
 
-  const { data, error } = await supabase
-    .from("dao_tickets")
-    .select("*")
-    .eq("type", "N")            // ✅ Only new token registrations
-    .eq("status", "closed")     // ✅ Only finalized entries
-    .order("timestamp", { ascending: false })
-    .limit(500);
+      const { data, error } = await supabase
+        .from("dao_tickets")
+        .select("*")
+        .eq("type", "N")
+        .eq("status", "closed")
+        .order("timestamp", { ascending: false })
+        .limit(500);
 
-  if (error) {
-    console.error("❌ Supabase name+symbol fallback error:", error.message);
-  }
+      if (error) {
+        console.error("❌ Supabase name+symbol fallback error:", error.message);
+      }
 
-  const match = data?.find(
-    (token) =>
-      sanitize(token.name) === inputName &&
-      sanitize(token.symbol) === inputSymbol
-  );
+      const match = data?.find(
+        (token) =>
+          sanitize(token.name) === inputName &&
+          sanitize(token.symbol) === inputSymbol
+      );
 
-  if (match) {
-    return res.status(200).json({
-      name: match.name,
-      symbol: match.symbol,
-      creator: match.creator,
-      timestamp: match.timestamp,
-      trustLevel: match.requestedLevel ?? 0,
-      tokenAddress: match.tokenAddress,
-      fingerprint: {
-        name: sanitize(match.name),
-        symbol: sanitize(match.symbol),
-      },
-    });
-  }
-}
+      if (match) {
+        return res.status(200).json({
+          name: match.name,
+          symbol: match.symbol,
+          creator: match.creator,
+          timestamp: match.timestamp,
+          trustLevel: match.requested_level ?? 0,
+          tokenAddress: match.token_address,
+          fingerprint: {
+            name: sanitize(match.name),
+            symbol: sanitize(match.symbol),
+          },
+        });
+      }
+    }
 
     // 🧱 3. Onchain contract lookup
     if (tokenAddress) {
@@ -124,12 +157,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // ✅ Final fallback: allow UI to proceed (token not found anywhere)
     return res.status(200).json(null);
-
   } catch (err: any) {
     console.error("❌ Server error:", err.message || err);
     return res.status(500).json({ error: "❌ Internal server error." });
   }
 }
+
 
 
 

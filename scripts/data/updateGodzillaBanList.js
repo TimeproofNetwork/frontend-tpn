@@ -57,29 +57,39 @@ async function main() {
   }
 
   report.lines.push(`✅ Fetched ${tokens.length} tokens.`);
-  const sanitizedNames = tokens.map(t => sanitize(t.name));
-  const sanitizedSymbols = tokens.map(t => sanitize(t.symbol));
 
   const BATCH_SIZE = 100;
   let totalPairsBanned = 0;
   let batchesSent = 0;
 
-  for (let i = 0; i < sanitizedNames.length; i += BATCH_SIZE) {
-    const batchNames = sanitizedNames.slice(i, i + BATCH_SIZE);
-    const batchSymbols = sanitizedSymbols.slice(i, i + BATCH_SIZE);
+  for (let i = 0; i < tokens.length; i += BATCH_SIZE) {
+    const batch = tokens.slice(i, i + BATCH_SIZE);
 
     const filteredNames = [];
     const filteredSymbols = [];
 
-    for (let j = 0; j < batchNames.length; j++) {
-      const name = batchNames[j];
-      const symbol = batchSymbols[j];
-      if (!name || !symbol || name.length > 64 || symbol.length > 16) continue;
+    for (let j = 0; j < batch.length; j++) {
+      const token = batch[j];
+      const rawName = token.name;
+      const rawSymbol = token.symbol;
 
-      const banned = await Registry.isGloballyBanned(name, symbol);
+      const sanitizedName = sanitize(rawName);
+      const sanitizedSymbol = sanitize(rawSymbol);
+
+      // ❗Skip if sanitization alters input (unsafe fingerprint)
+      if (sanitizedName !== sanitize(sanitizedName) || sanitizedSymbol !== sanitize(sanitizedSymbol)) {
+        const msg = `⎩ Skipped due to sanitize mismatch: (${rawName}, ${rawSymbol})`;
+        report.lines.push(msg);
+        console.log(msg);
+        continue;
+      }
+
+      if (!sanitizedName || !sanitizedSymbol || sanitizedName.length > 64 || sanitizedSymbol.length > 16) continue;
+
+      const banned = await Registry.isGloballyBanned(sanitizedName, sanitizedSymbol);
       if (!banned) {
-        filteredNames.push(name);
-        filteredSymbols.push(symbol);
+        filteredNames.push(sanitizedName);
+        filteredSymbols.push(sanitizedSymbol);
       }
     }
 
@@ -125,10 +135,10 @@ async function main() {
   report.lines.push("🛡️ Godzilla ban list update complete.");
   report.lines = report.lines.slice(-50); // Trim
 
-  // ✅ Push to Supabase (correct column names)
+  // ✅ Push to Supabase
   const { error } = await supabase.from("godzilla_ban_logs").insert([{
     ran_at: report.ranAt,
-    tx_hashes: report.txHashes,        // ✅ fixed: plural form
+    tx_hashes: report.txHashes,
     output: report.output,
     success: report.success,
     lines: report.lines
@@ -145,6 +155,8 @@ main().catch(err => {
   console.error("💥 Script failed:", err.message);
   process.exit(1);
 });
+
+
 
 
 

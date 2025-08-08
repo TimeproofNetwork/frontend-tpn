@@ -1,18 +1,18 @@
 {
-  "ranAt": "2025-08-07T12:34:48.015Z",
-  "duration": "14.952s",
+  "ranAt": "2025-08-08T13:01:45.489Z",
+  "duration": "18.883s",
   "ok": true,
   "gas_used": 25051,
-  "tx_hash": "0x8907e8c04656c55aee4083a27709c28d528b74d522e3ebff9108788ff250fa01",
+  "tx_hash": "0x8f51ac739b7df260551b5f577228de9dfe5d6704628156975d915ccf1bf02962",
   "result_line": "No clones purged — registry logbook is clean.",
   "lines": [
     "🔐 Using deployer: 0x6E118Ac0da2170697a4F942A0C509B29C59F698f",
     "",
     "🧼 Running Self–Heal Resilience (Clean Registry)...",
     "✅ Self–Heal executed successfully",
-    "⏳ Duration: 14.952s",
+    "⏳ Duration: 18.883s",
     "⛽ Gas Used: 25051",
-    "📜 Tx Hash: 0x8907e8c04656c55aee4083a27709c28d528b74d522e3ebff9108788ff250fa01",
+    "📜 Tx Hash: 0x8f51ac739b7df260551b5f577228de9dfe5d6704628156975d915ccf1bf02962",
     "📘 Result: No clones purged — registry logbook is clean."
   ]
 }
