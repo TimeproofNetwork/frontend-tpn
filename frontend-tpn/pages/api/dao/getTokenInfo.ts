@@ -1,5 +1,3 @@
-// /pages/api/dao/getTokenInfo.ts
-
 import type { NextApiRequest, NextApiResponse } from "next";
 import { ethers } from "ethers";
 import { createClient } from "@supabase/supabase-js";
@@ -69,8 +67,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const { data, error } = await supabase
         .from("dao_tickets")
         .select("*")
-        .eq("token_address", tokenAddress.toLowerCase())
-        .order("timestamp", { ascending: false })
+        .eq("tokenAddress", tokenAddress.toLowerCase())
+        .order("submitted", { ascending: false })
         .limit(1)
         .maybeSingle();
 
@@ -83,9 +81,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           name: data.name,
           symbol: data.symbol,
           creator: data.creator,
-          timestamp: data.timestamp,
-          trustLevel: data.requested_level ?? 0,
-          tokenAddress: data.token_address,
+          timestamp: data.submitted,
+          trustLevel: data.requestedLevel ?? 0,
+          tokenAddress: data.tokenAddress,
           fingerprint: {
             name: sanitize(data.name),
             symbol: sanitize(data.symbol),
@@ -104,7 +102,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .select("*")
         .eq("type", "N")
         .eq("status", "closed")
-        .order("timestamp", { ascending: false })
+        .order("submitted", { ascending: false })
         .limit(500);
 
       if (error) {
@@ -122,9 +120,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           name: match.name,
           symbol: match.symbol,
           creator: match.creator,
-          timestamp: match.timestamp,
-          trustLevel: match.requested_level ?? 0,
-          tokenAddress: match.token_address,
+          timestamp: match.submitted,
+          trustLevel: match.requestedLevel ?? 0,
+          tokenAddress: match.tokenAddress,
           fingerprint: {
             name: sanitize(match.name),
             symbol: sanitize(match.symbol),
@@ -162,6 +160,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: "❌ Internal server error." });
   }
 }
+
 
 
 

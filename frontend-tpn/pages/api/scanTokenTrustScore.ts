@@ -153,7 +153,7 @@ try {
 
     clusterOutput += `\n🧠 Suspicion Cluster Detected (${deduped.length} tokens)`;
     clusterOutput += `\n✅ Base Token: ${root.name} (${root.symbol}) | Registered at #${rootIndex}`;
-    clusterOutput += `\n📍 Closest Token: ${closest.name} (${closest.symbol}) | Registered at ${closestRegisteredAt}`;
+    clusterOutput += `\n📍 Input Token: ${closest.name} (${closest.symbol}) | Registered at ${closestRegisteredAt}`;
   }
 
   if (isRegistered) {

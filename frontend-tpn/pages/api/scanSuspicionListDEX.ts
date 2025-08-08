@@ -1,5 +1,3 @@
-// pages/api/scanSuspicionListDEX.ts
-
 import type { NextApiRequest, NextApiResponse } from "next";
 import { ethers } from "ethers";
 import levenshtein from "fast-levenshtein";
@@ -16,12 +14,6 @@ function sanitize(str: string): string {
 
 function unified(name: string, symbol: string): string {
   return sanitize(name + symbol);
-}
-
-function isSuspicious(candidate: any, root: any): boolean {
-  const u1 = unified(candidate.name, candidate.symbol);
-  const u2 = unified(root.name, root.symbol);
-  return levenshtein.get(u1, u2) <= 3;
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -67,7 +59,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     index: -1,
   };
 
-  // 🛡️ DAO Ban override — only if registered
   try {
     const isDaoBanned = await registry.isDAOPunished(nameSan, symbolSan);
     if (isDaoBanned) {
@@ -105,11 +96,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     `🔒 Trust Level: ${trustIcon} ${trustLabel}`
   ];
 
-  const cluster = tokens.filter(t => isSuspicious(t, { name: rawName, symbol: rawSymbol }));
-  const unique = new Map(cluster.map(t => [unified(t.name, t.symbol), t]));
-  const all = Array.from(unique.values());
+  const candidates = tokens.filter(t => {
+    if (!t.timestamp || (inputToken.timestamp && t.timestamp >= inputToken.timestamp)) return false;
+    return levenshtein.get(unifiedInput, unified(t.name, t.symbol)) <= 3;
+  }).map(t => {
+    const totalEdit = levenshtein.get(unifiedInput, unified(t.name, t.symbol));
+    return { ...t, totalEdit };
+  });
 
-  if (all.length < 2) {
+  candidates.sort((a, b) => a.totalEdit !== b.totalEdit ? a.totalEdit - b.totalEdit : a.timestamp - b.timestamp);
+  const root = candidates[0];
+
+  if (!root) {
     return res.status(200).json({
       output: [
         ...baseLines,
@@ -118,26 +116,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   }
 
-  const root = all[0];
-  const lastMember = all.reduce((latest, curr) => curr.timestamp > latest.timestamp ? curr : latest, all[0]);
+  const baseCluster = tokens.filter(t => levenshtein.get(unified(root.name, root.symbol), unified(t.name, t.symbol)) <= 3);
+  const uniqueCluster = Array.from(new Map(baseCluster.map(t => [unified(t.name, t.symbol), t])).values());
 
-  let closest = null;
-  let minEdit = Infinity;
-  for (const t of all.filter(t => t.index !== root.index)) {
-
-    const dist = levenshtein.get(unified(t.name, t.symbol), unifiedInput);
-    if (dist < minEdit || (dist === minEdit && (!closest || t.timestamp < closest.timestamp))) {
-      minEdit = dist;
-      closest = t;
+  const closest = uniqueCluster.filter(t => t.index !== root.index && t.index !== inputToken.index)
+  .reduce((closest, curr) => {
+    const dist = levenshtein.get(unified(root.name, root.symbol), unified(curr.name, curr.symbol));
+    const currDist = closest ? levenshtein.get(unified(root.name, root.symbol), unified(closest.name, closest.symbol)) : Infinity;
+    if (dist < currDist || (dist === currDist && curr.timestamp < closest.timestamp)) {
+      return curr;
     }
-  }
+    return closest;
+  }, null);
+
+  const lastMember = uniqueCluster.reduce((latest, curr) => curr.timestamp > latest.timestamp ? curr : latest, uniqueCluster[0]);
 
   const inputDisplay = isRegistered
     ? `📌 Input Token: ${inputToken.name} (${inputToken.symbol}) | Registered at #${inputToken.index}`
     : `📌 Input Token: ${nameSan} (${symbolSan}) | Registered at Unregistered`;
 
   const lines: string[] = [...baseLines];
-  lines.push(`\n🧠 Suspicion Cluster Detected (${all.length} tokens)`);
+  lines.push(`\n🧠 Suspicion Cluster Detected (${uniqueCluster.length} tokens)`);
   lines.push(`✅ Base Token: ${root.name} (${root.symbol}) | Registered at #${root.index}`);
   lines.push(inputDisplay);
   lines.push(`📍 Closest Token: ${closest?.name ?? "N/A"} (${closest?.symbol ?? "N/A"}) | Registered at #${closest?.index ?? "Unregistered"}`);
@@ -146,6 +145,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   return res.status(200).json({ output: lines.join("\n") });
 }
+
+
 
 
 
