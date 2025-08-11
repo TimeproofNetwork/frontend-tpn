@@ -54,6 +54,7 @@ export default function TokenRegister() {
   const [status, setStatus] = useState("");
   const [badgeInfo, setBadgeInfo] = useState<{ id: string; level: string } | null>(null);
   const [showHelp, setShowHelp] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { data: signer } = useSigner();
   const { connect } = useConnect();
@@ -69,6 +70,7 @@ export default function TokenRegister() {
       setProofAudit("");
       setTrustLevel("1");
       setStatus("");
+      setIsSubmitting(false);
       setBadgeInfo(null);
     }
   }, [isConnected]);
@@ -95,6 +97,7 @@ export default function TokenRegister() {
     document.getElementById("wallet-trigger")?.click();
     return;
   }
+  if (isSubmitting) return;  // 🚫 prevent double submission
 
   try {
     if (!signer) return alert("Wallet not connected.");
@@ -170,6 +173,7 @@ export default function TokenRegister() {
         `🧼 Sanitized Format:\n\nName: ${cleanName}\nSymbol: ${cleanSymbol}\n\nProceed with registration?`
       );
       if (!confirm) return;
+      setIsSubmitting(true);
 
       setStatus("⏳ Starting token deployment...");
 
@@ -235,14 +239,16 @@ export default function TokenRegister() {
       }
 
     } catch (err: any) {
-      const reason =
-        err?.error?.message ||
-        err?.reason ||
-        err?.data?.message ||
-        err.message ||
-        "Unknown";
-      setStatus("❌ Error: " + reason);
-    }
+  const reason =
+    err?.error?.message ||
+    err?.reason ||
+    err?.data?.message ||
+    err.message ||
+    "Unknown";
+  setStatus("❌ Error: " + reason);
+} finally {
+  setIsSubmitting(false);
+}
   };
 
   return (
@@ -319,9 +325,15 @@ export default function TokenRegister() {
         </div>
       </div>
 
-      <button onClick={handleRegister} className="w-full bg-purple-700 hover:bg-purple-600 transition p-3 rounded font-semibold shadow-md hover:shadow-purple-700 active:scale-95 mt-4">
-        🚀 Register Token (100 TPN)
-      </button>
+      <button
+  onClick={handleRegister}
+  disabled={isSubmitting}
+  className={`w-full bg-purple-700 hover:bg-purple-600 transition p-3 rounded font-semibold shadow-md hover:shadow-purple-700 active:scale-95 mt-4 ${
+    isSubmitting ? "opacity-60 cursor-not-allowed hover:bg-purple-700" : ""
+  }`}
+>
+  {isSubmitting ? "⏳ Processing..." : "🚀 Register Token (100 TPN)"}
+</button>
 
       {status && (
         <div className="mt-4 text-sm text-purple-300 whitespace-pre-wrap break-words">
